@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Min ønskeseddel</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css')}}">
+</head>
+<body>
+    <div class="contatiner">
+        <h1>Velkommen til min ønskeseddel</h1>
+
+        <form action="/tilføj" method="POST">
+            <input type="text" name="ønske" placeholder="Skriv dit ønske!">
+            <button type="submit">Tilføj</button>
+        </form>
+
+        <ul>
+            {% for ønske in ønsker%}
+                <li>
+                    {{ ønske["ønske"]}}
+                    <form action="/slet/{{ønske['id']}}" method="POST">
+                        <button type="submit">Slet</button>
+                    </form>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>    
+</body>
+</html>
