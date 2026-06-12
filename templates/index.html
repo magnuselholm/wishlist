@@ -11,14 +11,28 @@
         <h1>Velkommen til min ønskeseddel</h1>
 
         <form action="/tilføj" method="POST">
-            <input type="text" name="ønske" placeholder="Skriv dit ønske!">
+            <input type="text" name="ønske" placeholder="Skriv dit ønske!" required>
+            <input type="text" name="pris" placeholder="Skriv dit ønske!">
+            <input type="url" name="link" placeholder="Indsæt link">
+            <input type="url" name="billede" placeholder="Indsæt billede!">
             <button type="submit">Tilføj</button>
         </form>
 
         <ul>
             {% for ønske in ønsker%}
                 <li>
-                    {{ ønske["ønske"]}}
+                    {% if ønske[billede] %}
+                        <img source="{{ ønske['billede']}}" alt="{{ ønske['ønske'] }}">
+                    {% endif %}
+                    <div class="info">
+                        <span class="navn">{{ ønske['ønske'] }}</span>
+                        {% if ønske["pris"] %}
+                            <span class="pris">{{ ønske['pris'] }}</span>
+                        {% endif %}
+                        {% if ønske["link"] %}
+                            <a href="{{ ønske['link'] }}" target="_blank">Se produkt</a>
+                        {% endif %}
+                    </div>
                     <form action="/slet/{{ønske['id']}}" method="POST">
                         <button type="submit">Slet</button>
                     </form>
