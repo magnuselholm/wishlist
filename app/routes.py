@@ -1,5 +1,5 @@
 from flask import Blueprint, redirect, request, render_template
-from models import hent_ønsker, tilføj_ønske, slet_ønske
+from app.models import hent_ønsker, tilføj_ønske, slet_ønske
 
 bp = Blueprint("main", __name__)
 
