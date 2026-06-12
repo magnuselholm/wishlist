@@ -25,7 +25,7 @@ def hent_ønsker():
     db = get_db()
     return db.execute("SELECT * FROM ønsker").fetchall()
 
-def tilføj_ønske(tekst):
+def tilføj_ønske(tekst, pris, link, billede):
     db = get_db()
     db.execute("INSERT INTO ønsker (ønske, pris, link, billede) VALUES (?, ?, ?, ?)", (tekst, pris, link, billede))
     db.commit()
