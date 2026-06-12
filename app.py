@@ -18,7 +18,7 @@ def init_db():
     """)
     db.commit()
 
-ønsker = []
+init_db()
 
 @app.route("/")
 def index():
@@ -43,5 +43,4 @@ def slet(id):
     return redirect("/")
 
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True)
