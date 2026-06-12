@@ -81,3 +81,59 @@ li button {
 li button:hover {
     color: #e00;
 }
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 32px;
+}
+
+form input {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+li {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid #eee;
+}
+
+li img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.navn {
+    font-weight: 600;
+}
+
+.pris {
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.info a {
+    font-size: 0.85rem;
+    color: #2c7be5;
+    text-decoration: none;
+}
+
+.info a:hover {
+    text-decoration: underline;
+}
