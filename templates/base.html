@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titel %}Ønskeseddel{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="topbjælke">
+        <a class="logo" href="{{ url_for('main.index') }}">🎁 Ønskeseddel</a>
+        <nav>
+            {% if bruger %}
+                <span class="hilsen">{{ bruger['navn'] }}</span>
+                <a href="{{ url_for('main.lister') }}">Mine ønskelister</a>
+                <form method="POST" action="{{ url_for('auth.logud') }}">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button type="submit" class="tekstknap">Log ud</button>
+                </form>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}">Log ind</a>
+                <a class="knap lille" href="{{ url_for('auth.opret') }}">Opret bruger</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        {% with beskeder = get_flashed_messages(with_categories=true) %}
+            {% if beskeder %}
+                <div class="beskeder">
+                    {% for kategori, besked in beskeder %}
+                        <p class="besked {{ kategori }}">{{ besked }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block indhold %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

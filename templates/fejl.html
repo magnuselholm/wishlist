@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block titel %}Fejl {{ kode }}{% endblock %}
+
+{% block indhold %}
+<section class="kort smal midt">
+    <h1>{{ kode }}</h1>
+    <p>{{ besked }}</p>
+    <a class="knap" href="{{ url_for('main.index') }}">Tilbage til forsiden</a>
+</section>
+{% endblock %}

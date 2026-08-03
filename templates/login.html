@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block titel %}Log ind{% endblock %}
+
+{% block indhold %}
+<section class="kort smal">
+    <h1>Log ind</h1>
+    <form method="POST" action="{{ url_for('auth.login') }}" class="lodret">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="næste" value="{{ næste or '' }}">
+
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" value="{{ email or '' }}" required autofocus>
+
+        <label for="adgangskode">Adgangskode</label>
+        <input type="password" id="adgangskode" name="adgangskode" required>
+
+        <button type="submit" class="knap">Log ind</button>
+    </form>
+    <p class="under">Har du ikke en bruger? <a href="{{ url_for('auth.opret') }}">Opret en her</a>.</p>
+</section>
+{% endblock %}

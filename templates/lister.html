@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block titel %}Mine ønskelister{% endblock %}
+
+{% block indhold %}
+<section class="sidehoved">
+    <h1>Mine ønskelister</h1>
+    <button type="button" class="knap" data-vis="ny-liste">Ny ønskeliste</button>
+</section>
+
+<form method="POST" action="{{ url_for('main.opret_ny_liste') }}" class="kort lodret skjult" id="ny-liste">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <label for="titel">Titel</label>
+    <input type="text" id="titel" name="titel" placeholder="Fx Fødselsdag 2026" maxlength="120" required>
+
+    <label for="beskrivelse">Beskrivelse <span class="valgfri">(valgfri)</span></label>
+    <textarea id="beskrivelse" name="beskrivelse" rows="2" maxlength="500"></textarea>
+
+    <div class="knaprække">
+        <button type="submit" class="knap">Opret</button>
+        <button type="button" class="knap sekundær" data-skjul="ny-liste">Fortryd</button>
+    </div>
+</form>
+
+{% if lister %}
+    <div class="gitter lister">
+        {% for liste in lister %}
+            <a class="listekort" href="{{ url_for('main.vis_liste', liste_id=liste['id']) }}">
+                <div class="billede">
+                    {% if liste['forsidebillede'] %}
+                        <img src="{{ liste['forsidebillede'] }}" alt="" loading="lazy">
+                    {% else %}
+                        <span class="pladsholder">🎁</span>
+                    {% endif %}
+                </div>
+                <div class="indhold">
+                    <h2>{{ liste['titel'] }}</h2>
+                    {% if liste['beskrivelse'] %}<p class="beskrivelse">{{ liste['beskrivelse'] }}</p>{% endif %}
+                    <p class="meta">
+                        {{ liste['antal'] }} {{ 'ønske' if liste['antal'] == 1 else 'ønsker' }}
+                        {% if liste['samlet_pris'] %}· {{ liste['samlet_pris'] | kroner }}{% endif %}
+                    </p>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="tom">Du har ingen ønskelister endnu. Opret din første herover.</p>
+{% endif %}
+{% endblock %}

@@ -1,3 +1,16 @@
+:root {
+    --baggrund: #f6f5f3;
+    --kort: #ffffff;
+    --tekst: #1e1c1a;
+    --dæmpet: #6d675f;
+    --kant: #e4e0da;
+    --accent: #b3462f;
+    --accent-mørk: #8f3624;
+    --fare: #c0392b;
+    --skygge: 0 1px 2px rgba(30, 28, 26, .06), 0 6px 18px rgba(30, 28, 26, .06);
+    --radius: 12px;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,135 +18,555 @@
 }
 
 body {
-    font-family: sans-serif;
-    background-color: #f5f5f5;
-    display: flex;
-    justify-content: center;
-    padding: 60px 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--baggrund);
+    color: var(--tekst);
+    line-height: 1.5;
 }
 
-.container {
-    background: white;
-    padding: 40px;
-    border-radius: 8px;
-    width: 100%;
-    max-width: 500px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
 }
 
 h1 {
-    margin-bottom: 24px;
-    font-size: 1.8rem;
+    font-size: 1.9rem;
+    letter-spacing: -.02em;
 }
 
-form {
+a {
+    color: var(--accent);
+}
+
+/* topbjælke */
+
+.topbjælke {
     display: flex;
-    gap: 8px;
-    margin-bottom: 32px;
-}
-
-input[type="text"] {
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 1rem;
-}
-
-button[type="submit"] {
-    padding: 10px 16px;
-    background-color: #2c2c2c;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-button[type="submit"]:hover {
-    background-color: #444;
-}
-
-ul {
-    list-style: none;
-}
-
-li {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px solid #eee;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+    background: var(--kort);
+    border-bottom: 1px solid var(--kant);
 }
 
-li form {
-    margin: 0;
+.logo {
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-decoration: none;
+    color: var(--tekst);
 }
 
-li button {
-    background: none;
-    border: none;
-    color: #999;
-    cursor: pointer;
-    font-size: 0.85rem;
-}
-
-li button:hover {
-    color: #e00;
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 32px;
-}
-
-form input {
-    padding: 10px 14px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 1rem;
-}
-
-li {
+.topbjælke nav {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid #eee;
+    font-size: .95rem;
 }
 
-li img {
-    width: 64px;
-    height: 64px;
-    object-fit: cover;
-    border-radius: 6px;
-    flex-shrink: 0;
-}
-
-.info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1;
-}
-
-.navn {
-    font-weight: 600;
-}
-
-.pris {
-    color: #555;
-    font-size: 0.9rem;
-}
-
-.info a {
-    font-size: 0.85rem;
-    color: #2c7be5;
+.topbjælke nav a {
     text-decoration: none;
 }
 
-.info a:hover {
+.topbjælke nav a:hover {
     text-decoration: underline;
+}
+
+.hilsen {
+    color: var(--dæmpet);
+}
+
+/* knapper */
+
+.knap,
+button.knap {
+    display: inline-block;
+    padding: 10px 18px;
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    font-size: .95rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.knap:hover {
+    background: var(--accent-mørk);
+    border-color: var(--accent-mørk);
+}
+
+.knap.sekundær {
+    background: transparent;
+    color: var(--tekst);
+    border-color: var(--kant);
+}
+
+.knap.sekundær:hover {
+    background: #efece7;
+    border-color: #d8d2c9;
+}
+
+.knap.lille {
+    padding: 7px 14px;
+    font-size: .9rem;
+}
+
+.tekstknap {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+}
+
+.tekstknap:hover {
+    text-decoration: underline;
+}
+
+.tekstknap.farlig {
+    color: var(--fare);
+}
+
+.knaprække {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* beskeder */
+
+.beskeder {
+    margin-bottom: 20px;
+}
+
+.besked {
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--kant);
+    background: var(--kort);
+    margin-bottom: 8px;
+}
+
+.besked.fejl {
+    border-color: #f0c8c2;
+    background: #fdf1ef;
+    color: #8c2f20;
+}
+
+.besked.ok {
+    border-color: #cbe3cd;
+    background: #f1f8f1;
+    color: #2f6b39;
+}
+
+/* sider og kort */
+
+.sidehoved {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.kort {
+    background: var(--kort);
+    border: 1px solid var(--kant);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--skygge);
+    margin-bottom: 24px;
+}
+
+.kort.smal {
+    max-width: 420px;
+}
+
+.kort.midt {
+    margin: 40px auto;
+    text-align: center;
+}
+
+.kort h1 {
+    margin-bottom: 16px;
+    font-size: 1.5rem;
+}
+
+.skjult {
+    display: none !important;
+}
+
+.tilbage {
+    margin-bottom: 12px;
+    font-size: .95rem;
+}
+
+.tilbage a {
+    text-decoration: none;
+}
+
+.manchet {
+    color: var(--dæmpet);
+    margin-top: 4px;
+}
+
+.meta {
+    color: var(--dæmpet);
+    font-size: .9rem;
+    margin-top: 6px;
+}
+
+.tom {
+    color: var(--dæmpet);
+    background: var(--kort);
+    border: 1px dashed var(--kant);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+}
+
+.farezone {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--kant);
+    font-size: .9rem;
+}
+
+/* formularer */
+
+form.lodret {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+form.lodret label {
+    font-weight: 600;
+    font-size: .9rem;
+    margin-top: 10px;
+}
+
+form.lodret label:first-of-type {
+    margin-top: 0;
+}
+
+.valgfri {
+    font-weight: 400;
+    color: var(--dæmpet);
+}
+
+input[type="text"],
+input[type="url"],
+input[type="email"],
+input[type="password"],
+input[type="file"],
+textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--kant);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fff;
+}
+
+input:focus,
+textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: transparent;
+}
+
+textarea {
+    resize: vertical;
+}
+
+small {
+    color: var(--dæmpet);
+    font-size: .85rem;
+}
+
+form.lodret .knaprække {
+    margin-top: 20px;
+}
+
+.linjerække {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.linjerække input {
+    flex: 1 1 240px;
+}
+
+.status {
+    min-height: 1.2em;
+}
+
+.status.arbejder {
+    color: var(--dæmpet);
+}
+
+.status.fejl {
+    color: var(--fare);
+}
+
+.status.ok {
+    color: #2f6b39;
+}
+
+.billedvalg {
+    margin-top: 20px;
+    border: 1px solid var(--kant);
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.billedvalg legend {
+    font-weight: 600;
+    font-size: .9rem;
+    padding: 0 6px;
+}
+
+.billedvalg label {
+    display: block;
+    font-weight: 600;
+    font-size: .9rem;
+    margin: 12px 0 6px;
+}
+
+.forhåndsvisning {
+    margin-bottom: 12px;
+}
+
+img.forhåndsvisning,
+.forhåndsvisning img {
+    max-width: 180px;
+    max-height: 180px;
+    border-radius: 8px;
+    border: 1px solid var(--kant);
+    display: block;
+}
+
+.afkrydsning {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    font-weight: 400 !important;
+    margin-top: 8px !important;
+}
+
+.afkrydsning input {
+    width: auto;
+}
+
+/* gitter */
+
+.gitter {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 20px;
+}
+
+.ønskekort,
+.listekort {
+    display: flex;
+    flex-direction: column;
+    background: var(--kort);
+    border: 1px solid var(--kant);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--skygge);
+}
+
+.listekort {
+    text-decoration: none;
+    color: inherit;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.listekort:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(30, 28, 26, .08), 0 12px 24px rgba(30, 28, 26, .10);
+}
+
+.billede {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #f0ede8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.billede img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.listekort .billede img {
+    object-fit: cover;
+}
+
+.pladsholder {
+    font-size: 2rem;
+    opacity: .35;
+}
+
+.ønskekort .indhold,
+.listekort .indhold {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.ønskekort h2,
+.listekort h2 {
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.pris {
+    font-weight: 700;
+}
+
+.pris .ukendt {
+    font-weight: 400;
+    color: var(--dæmpet);
+    font-size: .9rem;
+}
+
+.mærkat {
+    align-self: flex-start;
+    font-size: .8rem;
+    background: #f0ede8;
+    border-radius: 999px;
+    padding: 2px 10px;
+    color: var(--dæmpet);
+}
+
+.beskrivelse {
+    font-size: .9rem;
+    color: var(--dæmpet);
+    white-space: pre-line;
+}
+
+.produktlink {
+    margin-top: auto;
+    padding-top: 6px;
+    font-size: .9rem;
+    text-decoration: none;
+}
+
+.produktlink:hover {
+    text-decoration: underline;
+}
+
+.kortbund {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid var(--kant);
+    font-size: .85rem;
+}
+
+.kortbund a {
+    text-decoration: none;
+}
+
+.kortbund a:hover {
+    text-decoration: underline;
+}
+
+/* forside */
+
+.forside {
+    max-width: 640px;
+    margin: 40px auto;
+    text-align: center;
+}
+
+.forside h1 {
+    font-size: 2.4rem;
+}
+
+.forside .manchet {
+    margin: 16px 0 28px;
+    font-size: 1.05rem;
+}
+
+.forside .knaprække {
+    justify-content: center;
+}
+
+.punkter {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 56px;
+    text-align: left;
+}
+
+.punkter li {
+    background: var(--kort);
+    border: 1px solid var(--kant);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.punkter span {
+    color: var(--dæmpet);
+    font-size: .9rem;
+}
+
+.under {
+    margin-top: 16px;
+    font-size: .9rem;
+    color: var(--dæmpet);
+}
+
+@media (max-width: 540px) {
+    .sidehoved {
+        align-items: stretch;
+    }
+
+    /* to kort ved siden af hinanden på telefon i stedet for ét meget højt */
+    .gitter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .ønskekort .indhold,
+    .listekort .indhold {
+        padding: 12px;
+    }
+
+    .kortbund {
+        padding: 8px 12px;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    .forside h1 {
+        font-size: 1.9rem;
+    }
 }

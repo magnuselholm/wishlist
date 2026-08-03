@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ 'Rediger ønske' if onske_id else 'Nyt ønske' }}{% endblock %}
+
+{% block indhold %}
+<p class="tilbage"><a href="{{ url_for('main.vis_liste', liste_id=liste['id']) }}">← {{ liste['titel'] }}</a></p>
+
+<section class="kort">
+    <h1>{{ 'Rediger ønske' if onske_id else 'Nyt ønske' }}</h1>
+
+    <form method="POST" action="{{ request.path }}" class="lodret" enctype="multipart/form-data" id="ønske-formular">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+        <label for="link">Link til produktet <span class="valgfri">(valgfri)</span></label>
+        <div class="linjerække">
+            <input type="url" id="link" name="link" value="{{ ønske['link'] if ønske else '' }}"
+                   placeholder="https://..." maxlength="2000">
+            <button type="button" class="knap sekundær" id="hent-fra-link">Hent oplysninger</button>
+        </div>
+        <small id="skrab-status" class="status"></small>
+
+        <label for="titel">Navn på ønsket</label>
+        <input type="text" id="titel" name="titel" value="{{ ønske['titel'] if ønske else '' }}"
+               maxlength="200" required>
+
+        <label for="pris">Pris i DKK <span class="valgfri">(valgfri)</span></label>
+        <input type="text" id="pris" name="pris" inputmode="decimal" placeholder="fx 249 eller 1.299,95"
+               value="{{ ønske['pris'] | kroner | replace(' kr.', '') if ønske and ønske['pris'] else '' }}">
+
+        <label for="størrelse">Størrelse <span class="valgfri">(valgfri)</span></label>
+        <input type="text" id="størrelse" name="størrelse" value="{{ ønske['størrelse'] if ønske else '' }}"
+               placeholder="fx M, 42 eller 50 cm" maxlength="60">
+
+        <label for="beskrivelse">Beskrivelse <span class="valgfri">(valgfri)</span></label>
+        <textarea id="beskrivelse" name="beskrivelse" rows="3" maxlength="1000"
+                  placeholder="Farve, model, hvorfor du ønsker dig det …">{{ ønske['beskrivelse'] if ønske else '' }}</textarea>
+
+        <fieldset class="billedvalg">
+            <legend>Billede <span class="valgfri">(valgfri)</span></legend>
+
+            {% if ønske and ønske['billede'] %}
+                <div class="forhåndsvisning">
+                    <img src="{{ ønske['billede'] }}" alt="" id="billede-forhåndsvisning">
+                    <label class="afkrydsning">
+                        <input type="checkbox" name="fjern_billede" value="1"> Fjern billedet
+                    </label>
+                </div>
+            {% else %}
+                <img src="" alt="" id="billede-forhåndsvisning" class="forhåndsvisning skjult">
+            {% endif %}
+
+            <label for="billede_url">Billedadresse</label>
+            <input type="url" id="billede_url" name="billede_url" placeholder="https://..." maxlength="2000">
+
+            <label for="billede_fil">… eller upload en fil</label>
+            <input type="file" id="billede_fil" name="billede_fil" accept="image/png,image/jpeg,image/gif,image/webp">
+            <small>PNG, JPG, GIF eller WEBP – maks. 5 MB. En uploadet fil bruges frem for adressen.</small>
+        </fieldset>
+
+        <div class="knaprække">
+            <button type="submit" class="knap">{{ 'Gem ændringer' if onske_id else 'Tilføj ønske' }}</button>
+            <a class="knap sekundær" href="{{ url_for('main.vis_liste', liste_id=liste['id']) }}">Fortryd</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

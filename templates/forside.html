@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block titel %}Ønskeseddel – saml dine ønsker ét sted{% endblock %}
+
+{% block indhold %}
+<section class="forside">
+    <h1>Saml alle dine ønsker ét sted</h1>
+    <p class="manchet">
+        Lav en ønskeliste til fødselsdagen, en til jul og en til det nye køkken.
+        Indsæt et link, så henter vi selv titel, pris og billede.
+    </p>
+    <div class="knaprække">
+        <a class="knap" href="{{ url_for('auth.opret') }}">Kom i gang</a>
+        <a class="knap sekundær" href="{{ url_for('auth.login') }}">Log ind</a>
+    </div>
+
+    <ul class="punkter">
+        <li><strong>Flere lister</strong><span>Én til hver anledning.</span></li>
+        <li><strong>Pris i kroner</strong><span>Se hvad hele listen løber op i.</span></li>
+        <li><strong>Billede og størrelse</strong><span>Så der ikke er tvivl om hvad du mener.</span></li>
+    </ul>
+</section>
+{% endblock %}
