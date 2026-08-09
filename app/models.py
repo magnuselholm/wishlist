@@ -43,12 +43,22 @@ def init_db():
     if "lister" in _tabeller(db) and "del_nøgle" not in _kolonner(db, "lister"):
         db.execute("ALTER TABLE lister ADD COLUMN del_nøgle TEXT")
 
+    # brugere fra før invitationerne har hverken admin-flag eller en kode de kom ind på
+    if "brugere" in _tabeller(db):
+        gamle = _kolonner(db, "brugere")
+        if "admin" not in gamle:
+            db.execute("ALTER TABLE brugere ADD COLUMN admin INTEGER NOT NULL DEFAULT 0")
+        if "invitation_id" not in gamle:
+            db.execute("ALTER TABLE brugere ADD COLUMN invitation_id INTEGER REFERENCES invitationer(id)")
+
     db.executescript("""
         CREATE TABLE IF NOT EXISTS brugere (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL UNIQUE COLLATE NOCASE,
             navn TEXT NOT NULL,
             adgangskode TEXT NOT NULL,
+            admin INTEGER NOT NULL DEFAULT 0,
+            invitation_id INTEGER REFERENCES invitationer(id),
             oprettet TEXT NOT NULL
         );
 
@@ -81,6 +91,19 @@ def init_db():
             oprettet TEXT NOT NULL
         );
 
+        -- invitationskoder: uden en gyldig kode kan ingen oprette sig
+        CREATE TABLE IF NOT EXISTS invitationer (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kode TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            note TEXT,
+            maks_brug INTEGER,
+            brugt INTEGER NOT NULL DEFAULT 0,
+            udløber TEXT,
+            spærret INTEGER NOT NULL DEFAULT 0,
+            oprettet_af INTEGER REFERENCES brugere(id) ON DELETE SET NULL,
+            oprettet TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_lister_bruger ON lister(bruger_id);
         CREATE INDEX IF NOT EXISTS idx_ønsker_liste ON ønsker(liste_id);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_lister_del_nøgle ON lister(del_nøgle);
@@ -89,6 +112,11 @@ def init_db():
     # lister oprettet før deling har endnu ingen nøgle
     for række in db.execute("SELECT id FROM lister WHERE del_nøgle IS NULL").fetchall():
         db.execute("UPDATE lister SET del_nøgle = ? WHERE id = ?", (ny_del_nøgle(), række["id"]))
+
+    # en base med brugere, men uden admin, er fra før invitationerne. Den ældste bruger
+    # bliver admin – ellers var der ingen til at lave koder bagefter
+    if db.execute("SELECT COUNT(*) AS n FROM brugere WHERE admin = 1").fetchone()["n"] == 0:
+        db.execute("UPDATE brugere SET admin = 1 WHERE id = (SELECT MIN(id) FROM brugere)")
 
     db.commit()
 
@@ -105,14 +133,22 @@ def _nu():
 ### brugere
 
 
-def opret_bruger(email, navn, adgangskode_hash):
+def opret_bruger(email, navn, adgangskode_hash, invitation_id=None, admin=False):
     db = get_db()
     markør = db.execute(
-        "INSERT INTO brugere (email, navn, adgangskode, oprettet) VALUES (?, ?, ?, ?)",
-        (email, navn, adgangskode_hash, _nu()),
+        """
+        INSERT INTO brugere (email, navn, adgangskode, admin, invitation_id, oprettet)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (email, navn, adgangskode_hash, 1 if admin else 0, invitation_id, _nu()),
     )
     db.commit()
     return markør.lastrowid
+
+
+def antal_brugere():
+    db = get_db()
+    return db.execute("SELECT COUNT(*) AS n FROM brugere").fetchone()["n"]
 
 
 def hent_bruger_på_email(email):
@@ -123,6 +159,103 @@ def hent_bruger_på_email(email):
 def hent_bruger(bruger_id):
     db = get_db()
     return db.execute("SELECT * FROM brugere WHERE id = ?", (bruger_id,)).fetchone()
+
+
+def opdater_bruger(bruger_id, navn, email):
+    db = get_db()
+    db.execute("UPDATE brugere SET navn = ?, email = ? WHERE id = ?", (navn, email, bruger_id))
+    db.commit()
+
+
+def opdater_adgangskode(bruger_id, adgangskode_hash):
+    db = get_db()
+    db.execute("UPDATE brugere SET adgangskode = ? WHERE id = ?", (adgangskode_hash, bruger_id))
+    db.commit()
+
+
+def slet_bruger(bruger_id):
+    """Lister, ønsker og reservationer følger med via ON DELETE CASCADE."""
+    db = get_db()
+    db.execute("DELETE FROM brugere WHERE id = ?", (bruger_id,))
+    db.commit()
+
+
+### invitationer
+
+# uden 0/O og 1/I, så en kode kan læses op i telefonen uden misforståelser
+KODE_TEGN = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def ny_invitationskode():
+    tegn = "".join(secrets.choice(KODE_TEGN) for _ in range(8))
+    return f"{tegn[:4]}-{tegn[4:]}"
+
+
+def hent_invitationer():
+    """Alle koder med hvor mange der er kommet ind på dem, og hvem det var."""
+    db = get_db()
+    return db.execute(
+        """
+        SELECT invitationer.*,
+               (SELECT COUNT(*) FROM brugere WHERE brugere.invitation_id = invitationer.id)
+                   AS antal_brugere,
+               (SELECT GROUP_CONCAT(navn, ', ') FROM brugere WHERE brugere.invitation_id = invitationer.id)
+                   AS navne
+          FROM invitationer
+         ORDER BY id DESC
+        """
+    ).fetchall()
+
+
+def hent_invitation_på_kode(kode):
+    db = get_db()
+    return db.execute("SELECT * FROM invitationer WHERE kode = ?", (kode,)).fetchone()
+
+
+def opret_invitation(kode, note, maks_brug, udløber, oprettet_af):
+    db = get_db()
+    markør = db.execute(
+        """
+        INSERT INTO invitationer (kode, note, maks_brug, udløber, oprettet_af, oprettet)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (kode, note, maks_brug, udløber, oprettet_af, _nu()),
+    )
+    db.commit()
+    return markør.lastrowid
+
+
+def sæt_invitation_spærret(invitation_id, spærret):
+    db = get_db()
+    db.execute(
+        "UPDATE invitationer SET spærret = ? WHERE id = ?", (1 if spærret else 0, invitation_id)
+    )
+    db.commit()
+
+
+def brug_invitation(invitation_id):
+    """Tager en plads på koden i ét hug, så to samtidige oprettelser ikke kan dele den sidste."""
+    db = get_db()
+    markør = db.execute(
+        """
+        UPDATE invitationer
+           SET brugt = brugt + 1
+         WHERE id = ?
+           AND spærret = 0
+           AND (maks_brug IS NULL OR brugt < maks_brug)
+           AND (udløber IS NULL OR udløber >= date('now'))
+        """,
+        (invitation_id,),
+    )
+    db.commit()
+    return markør.rowcount == 1
+
+
+def frigiv_invitation(invitation_id):
+    """Giver pladsen tilbage, hvis oprettelsen alligevel ikke blev til noget."""
+    db = get_db()
+    db.execute("UPDATE invitationer SET brugt = brugt - 1 WHERE id = ? AND brugt > 0", (invitation_id,))
+    db.commit()
 
 
 ### ønskelister

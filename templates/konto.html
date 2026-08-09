@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block titel %}Min konto{% endblock %}
+
+{% block indhold %}
+<section class="sidehoved">
+    <div>
+        <h1>Min konto</h1>
+        <p class="meta">
+            Bruger siden {{ konto['oprettet'] | dato }}{% if konto['admin'] %} · du styrer invitationerne{% endif %}
+        </p>
+    </div>
+</section>
+
+<form method="POST" action="{{ url_for('auth.ret_oplysninger') }}" class="kort lodret smal">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h2>Navn og e-mail</h2>
+
+    <label for="navn">Navn</label>
+    <input type="text" id="navn" name="navn" value="{{ navn or konto['navn'] }}" maxlength="80" required>
+    <small>Det er navnet, dine gæster ser på ønskelisten.</small>
+
+    <label for="email">E-mail</label>
+    <input type="email" id="email" name="email" value="{{ email or konto['email'] }}" required>
+    <small>Du logger ind med din e-mail.</small>
+
+    <div class="knaprække">
+        <button type="submit" class="knap">Gem</button>
+    </div>
+</form>
+
+<form method="POST" action="{{ url_for('auth.ret_adgangskode') }}" class="kort lodret smal">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h2>Skift adgangskode</h2>
+
+    <label for="nuværende">Nuværende adgangskode</label>
+    <input type="password" id="nuværende" name="nuværende" autocomplete="current-password" required>
+
+    <label for="ny">Ny adgangskode</label>
+    <input type="password" id="ny" name="ny" minlength="8" autocomplete="new-password" required>
+    <small>Mindst 8 tegn.</small>
+
+    <label for="ny_igen">Gentag den nye</label>
+    <input type="password" id="ny_igen" name="ny_igen" minlength="8" autocomplete="new-password" required>
+
+    <div class="knaprække">
+        <button type="submit" class="knap">Skift adgangskode</button>
+    </div>
+</form>
+
+<section class="farezone">
+    <button type="button" class="tekstknap farlig" data-vis="slet-konto">Slet min konto</button>
+
+    <form method="POST" action="{{ url_for('auth.slet_konto') }}" class="kort lodret smal skjult" id="slet-konto"
+          data-bekræft="Slet din konto og alle dine ønskelister? Det kan ikke fortrydes.">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <h2>Slet min konto</h2>
+        <p class="manchet">Alle dine ønskelister, ønsker og billeder forsvinder med det samme,
+            og delelinkene holder op med at virke. Det kan ikke fortrydes.</p>
+
+        <label for="adgangskode">Skriv din adgangskode for at bekræfte</label>
+        <input type="password" id="adgangskode" name="adgangskode" autocomplete="current-password" required>
+
+        <div class="knaprække">
+            <button type="submit" class="knap farlig">Slet kontoen</button>
+            <button type="button" class="knap sekundær" data-skjul="slet-konto">Fortryd</button>
+        </div>
+    </form>
+</section>
+{% endblock %}

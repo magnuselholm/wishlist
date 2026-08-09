@@ -132,6 +132,17 @@ button.knap {
     color: var(--fare);
 }
 
+.knap.farlig,
+button.knap.farlig {
+    background: var(--fare);
+    border-color: var(--fare);
+}
+
+.knap.farlig:hover {
+    background: #9e2f22;
+    border-color: #9e2f22;
+}
+
 .knaprække {
     display: flex;
     align-items: center;
@@ -370,6 +381,65 @@ img.forhåndsvisning,
 
 .afkrydsning input {
     width: auto;
+}
+
+/* tabel (invitationer) */
+
+.tabelkort {
+    background: var(--kort);
+    border: 1px solid var(--kant);
+    border-radius: var(--radius);
+    box-shadow: var(--skygge);
+    overflow-x: auto;
+}
+
+.tabel {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .95rem;
+}
+
+.tabel th,
+.tabel td {
+    padding: 12px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--kant);
+}
+
+.tabel th {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--dæmpet);
+}
+
+.tabel tr:last-child td {
+    border-bottom: none;
+}
+
+.tabel code {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.tabel .højre {
+    text-align: right;
+}
+
+.tabel small {
+    color: var(--dæmpet);
+}
+
+.dæmpet-række td:not(:last-child) {
+    opacity: .55;
+}
+
+.tekstknap.lille {
+    font-size: .85rem;
+    margin-left: 8px;
+    white-space: nowrap;
 }
 
 /* gitter */

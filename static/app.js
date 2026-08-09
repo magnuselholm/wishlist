@@ -20,30 +20,36 @@ document.addEventListener("click", (hændelse) => {
     const kopiér = hændelse.target.closest("[data-kopiér]");
     if (kopiér) {
         const felt = document.getElementById(kopiér.dataset.kopiér);
-        if (felt) kopiér_tekst(felt);
+        if (felt) {
+            felt.select();
+            felt.setSelectionRange(0, felt.value.length);
+            kopiér_tekst(felt.value);
+        }
+    }
+
+    const kopiérTekst = hændelse.target.closest("[data-kopiér-tekst]");
+    if (kopiérTekst) {
+        kopiér_tekst(kopiérTekst.dataset.kopiérTekst);
     }
 });
 
-// kopiér delelinket til udklipsholderen
+// kopiér et link til udklipsholderen
 
-async function kopiér_tekst(felt) {
+async function kopiér_tekst(tekst) {
     const status = document.getElementById("kopi-status");
-    const skriv = (tekst, klasse) => {
+    const skriv = (besked, klasse) => {
         if (status) {
-            status.textContent = tekst;
+            status.textContent = besked;
             status.className = "status " + klasse;
         }
     };
 
-    felt.select();
-    felt.setSelectionRange(0, felt.value.length);
-
     try {
-        await navigator.clipboard.writeText(felt.value);
+        await navigator.clipboard.writeText(tekst);
         skriv("Linket er kopieret.", "ok");
     } catch (fejl) {
-        // uden adgang til udklipsholderen er teksten i det mindste markeret
-        skriv("Tryk Ctrl/Cmd + C for at kopiere linket.", "");
+        // uden adgang til udklipsholderen må linket markeres og kopieres i hånden
+        skriv("Kunne ikke kopiere. Markér linket og tryk Ctrl/Cmd + C.", "fejl");
     }
 }
 

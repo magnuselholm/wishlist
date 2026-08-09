@@ -1,5 +1,6 @@
 from wekzeug.middleware.proxy_fix import ProxyFix
 
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, render_template
@@ -38,14 +39,16 @@ def create_app(config=Config):
     with app.app_context():
         init_db()
 
-    from app import auth, deling, routes
+    from app import auth, deling, invitationer, routes
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(routes.bp)
     app.register_blueprint(deling.bp)
+    app.register_blueprint(invitationer.bp)
 
     app.before_request(auth.tjek_csrf)
     app.jinja_env.filters["kroner"] = kroner
+    app.jinja_env.filters["dato"] = dato
 
     @app.context_processor
     def skabelon_variabler():
@@ -64,6 +67,21 @@ def create_app(config=Config):
         return render_template("fejl.html", kode=413, besked="Filen er for stor (maks. 5 MB)."), 413
 
     return app
+
+
+MÅNEDER = ["januar", "februar", "marts", "april", "maj", "juni",
+           "juli", "august", "september", "oktober", "november", "december"]
+
+
+def dato(iso):
+    """"2026-08-09T10:12:13+00:00" -> "9. august 2026"."""
+    if not iso:
+        return ""
+    try:
+        dag = date.fromisoformat(str(iso)[:10])
+    except ValueError:
+        return str(iso)
+    return f"{dag.day}. {MÅNEDER[dag.month - 1]} {dag.year}"
 
 
 def kroner(beløb):
