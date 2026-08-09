@@ -66,6 +66,10 @@ def create_app(config=Config):
     def for_stor(e):
         return render_template("fejl.html", kode=413, besked="Filen er for stor (maks. 5 MB)."), 413
 
+    @app.errorhandler(429)
+    def for_mange(e):
+        return render_template("fejl.html", kode=429, besked="For mange anmodninger. Prøv igen senere."), 429
+    
     return app
 
 

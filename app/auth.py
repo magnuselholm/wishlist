@@ -305,10 +305,6 @@ def logud():
     flash("Du er logget ud.", "ok")
     return redirect(url_for("auth.login"))
 
-@app.errorhandler(429)
-def for_mange(e):
-    return render_template("fejl.html", kode=429, besked="For mange anmodninger. Prøv igen senere."), 429
-
 def sikker_næste(sti):
     """Kun relative stier accepteres, så login ikke kan sende folk videre til et fremmed domæne."""
     if not sti or not sti.startswith("/") or sti.startswith("//"):
