@@ -1,12 +1,17 @@
+from wekzeug.middleware.proxy_fix import ProxyFix
+
 from pathlib import Path
 
 from flask import Flask, render_template
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from app.models import init_db, luk_db
 from config import Config
 
-### samler appen
 
+### samler appen
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
 def create_app(config=Config):
     app = Flask(
@@ -16,7 +21,18 @@ def create_app(config=Config):
     )
     app.config.from_object(config)
 
+    if app.config["DRIFT"] and app.config["SECRET_KEY"] == "TEST":
+        raise RuntimeError(
+            "SECRET_KEY er stadig standardværdien. Sæt en rigtig nøgle" \
+            "i .env (openssl rand -hex 32 eller lignende) og genstart serveren."
+        )
+
+
+    if app.config["DRIFT"]:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     Path(app.config["UPLOAD_MAPPE"]).mkdir(parents=True, exist_ok=True)
+
+    limiter.init_app(app)
 
     app.teardown_appcontext(luk_db)
     with app.app_context():

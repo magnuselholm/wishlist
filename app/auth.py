@@ -2,9 +2,12 @@ import re
 import secrets
 from functools import wraps
 
+from app import limiter
+
 from flask import (
     Blueprint,
     abort,
+    app,
     flash,
     g,
     redirect,
@@ -70,6 +73,7 @@ def tjek_csrf():
 
 
 @bp.route("/opret-bruger", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
 def opret():
     if hent_aktuel_bruger():
         return redirect(url_for("main.lister"))
@@ -106,6 +110,7 @@ def opret():
 
 
 @bp.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute", methods=["POST"])  # begrænser brute-force loginforsøg
 def login():
     if hent_aktuel_bruger():
         return redirect(url_for("main.lister"))
@@ -132,6 +137,9 @@ def logud():
     flash("Du er logget ud.", "ok")
     return redirect(url_for("auth.login"))
 
+@app.errorhandler(429)
+def for_mange(e):
+    return render_template("fejl.html", kode=429, besked="For mange anmodninger. Prøv igen senere."), 429
 
 def sikker_næste(sti):
     """Kun relative stier accepteres, så login ikke kan sende folk videre til et fremmed domæne."""

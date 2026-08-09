@@ -7,6 +7,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 class Config:
+    DRIFT = os.environ.get("DRIFT") == "1"
+
     SECRET_KEY = os.environ.get("SECRET_KEY", "TEST")
     DATABASE = os.environ.get("DATABASE", str(BASE_DIR / "ønsker.db"))
 
@@ -16,3 +18,4 @@ class Config:
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = DRIFT  # kun HTTPS
