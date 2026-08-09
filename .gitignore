@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 static/uploads/*
 !static/uploads/.gitkeep
+.env
