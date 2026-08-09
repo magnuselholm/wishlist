@@ -7,6 +7,8 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN useradd --uid 1000 --gid 100 --create-home wishlist
+ENV HOME=/home/wishlist
 
 COPY . .
 
