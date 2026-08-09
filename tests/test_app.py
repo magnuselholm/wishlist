@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import create_app, kroner  # noqa: E402
+from app import create_app, dato, kroner  # noqa: E402
 from app.skrab import SkrabFejl, _find_billede, _find_pris, _find_titel, _tjek_adresse, læs_pris  # noqa: E402
 from config import Config  # noqa: E402
 
@@ -114,6 +114,141 @@ def test_login_kræves_for_lister(klient):
     svar = klient.get("/lister")
     assert svar.status_code == 302
     assert "/login" in svar.headers["Location"]
+
+
+### kontoen
+
+
+def test_konto_kræver_login(klient):
+    assert klient.get("/konto").status_code == 302
+    assert klient.post("/konto/adgangskode", data={"_csrf": csrf(klient)}).status_code == 302
+
+
+def test_navn_og_email_kan_rettes(klient):
+    opret_og_login(klient)
+
+    svar = klient.post(
+        "/konto/oplysninger",
+        data={"navn": "Magnus Elholm", "email": "NY@eksempel.dk", "_csrf": csrf(klient)},
+        follow_redirects=True,
+    )
+    assert "Oplysningerne er gemt" in svar.get_data(as_text=True)
+    assert "Magnus Elholm" in svar.get_data(as_text=True)
+
+    # e-mailen er logind, så den nye skal virke – og den gamle ikke
+    klient.post("/logud", data={"_csrf": csrf(klient)})
+    svar = klient.post(
+        "/login",
+        data={"email": "ny@eksempel.dk", "adgangskode": "hemmeligt123", "_csrf": csrf(klient)},
+        follow_redirects=True,
+    )
+    assert "Mine ønskelister" in svar.get_data(as_text=True)
+
+
+def test_email_der_er_taget_afvises(app):
+    a = app.test_client()
+    opret_og_login(a)
+    b = app.test_client()
+    opret_og_login(b, "b@eksempel.dk", invitation=lav_invitationskode(a))
+
+    svar = b.post(
+        "/konto/oplysninger",
+        data={"navn": "Test", "email": "test@eksempel.dk", "_csrf": csrf(b)},
+    )
+    assert svar.status_code == 400
+    assert "findes allerede" in svar.get_data(as_text=True)
+
+
+def test_ugyldig_email_afvises_på_kontoen(klient):
+    opret_og_login(klient)
+    svar = klient.post(
+        "/konto/oplysninger", data={"navn": "Test", "email": "ikke-en-mail", "_csrf": csrf(klient)}
+    )
+    assert svar.status_code == 400
+    assert "gyldig e-mail" in svar.get_data(as_text=True)
+
+
+def test_adgangskoden_kan_skiftes(klient):
+    opret_og_login(klient)
+
+    svar = klient.post(
+        "/konto/adgangskode",
+        data={"nuværende": "forkert123", "ny": "nyhemmelig123", "ny_igen": "nyhemmelig123",
+              "_csrf": csrf(klient)},
+    )
+    assert svar.status_code == 400
+    assert "passer ikke" in svar.get_data(as_text=True)
+
+    svar = klient.post(
+        "/konto/adgangskode",
+        data={"nuværende": "hemmeligt123", "ny": "nyhemmelig123", "ny_igen": "nyhemmelig123",
+              "_csrf": csrf(klient)},
+        follow_redirects=True,
+    )
+    assert "Adgangskoden er skiftet" in svar.get_data(as_text=True)
+
+    klient.post("/logud", data={"_csrf": csrf(klient)})
+    gammel = klient.post(
+        "/login", data={"email": "test@eksempel.dk", "adgangskode": "hemmeligt123", "_csrf": csrf(klient)}
+    )
+    assert gammel.status_code == 401
+
+    ny = klient.post(
+        "/login",
+        data={"email": "test@eksempel.dk", "adgangskode": "nyhemmelig123", "_csrf": csrf(klient)},
+        follow_redirects=True,
+    )
+    assert "Mine ønskelister" in ny.get_data(as_text=True)
+
+
+@pytest.mark.parametrize(
+    "ny, ny_igen, besked",
+    [
+        ("kort", "kort", "mindst 8 tegn"),
+        ("nyhemmelig123", "noget andet", "ikke ens"),
+        ("hemmeligt123", "hemmeligt123", "samme som den gamle"),
+    ],
+)
+def test_ny_adgangskode_tjekkes(klient, ny, ny_igen, besked):
+    opret_og_login(klient)
+    svar = klient.post(
+        "/konto/adgangskode",
+        data={"nuværende": "hemmeligt123", "ny": ny, "ny_igen": ny_igen, "_csrf": csrf(klient)},
+    )
+    assert svar.status_code == 400
+    assert besked in svar.get_data(as_text=True)
+
+
+def test_kontoen_kan_slettes_med_det_hele(app, klient):
+    opret_og_login(klient)
+    klient.post("/lister/opret", data={"titel": "Jul", "_csrf": csrf(klient)})
+    png = (io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64), "billede.png")
+    klient.post(
+        "/liste/1/nyt-ønske",
+        data={"titel": "Med billede", "_csrf": csrf(klient), "billede_fil": png},
+        content_type="multipart/form-data",
+    )
+    nøgle = delelink(klient)
+
+    svar = klient.post("/konto/slet", data={"adgangskode": "forkert123", "_csrf": csrf(klient)})
+    assert svar.status_code == 400
+    assert "Skriv din adgangskode" in svar.get_data(as_text=True)
+
+    svar = klient.post(
+        "/konto/slet", data={"adgangskode": "hemmeligt123", "_csrf": csrf(klient)}, follow_redirects=True
+    )
+    assert "er slettet" in svar.get_data(as_text=True)
+
+    # brugeren, listerne, ønskerne og billedfilen er væk – og delelinket virker ikke
+    with app.app_context():
+        from app.models import get_db
+
+        db = get_db()
+        for tabel in ("brugere", "lister", "ønsker"):
+            assert db.execute(f"SELECT COUNT(*) AS n FROM {tabel}").fetchone()["n"] == 0
+
+    assert list(Path(app.config["UPLOAD_MAPPE"]).iterdir()) == []
+    assert app.test_client().get(f"/delt/{nøgle}").status_code == 404
 
 
 ### invitationer
@@ -695,6 +830,19 @@ def test_skrab_kræver_login(klient):
 )
 def test_kroner(beløb, forventet):
     assert kroner(beløb) == forventet
+
+
+@pytest.mark.parametrize(
+    "iso, forventet",
+    [
+        ("2026-08-09T10:12:13+00:00", "9. august 2026"),
+        ("2026-12-24", "24. december 2026"),
+        ("ikke en dato", "ikke en dato"),
+        (None, ""),
+    ],
+)
+def test_dato(iso, forventet):
+    assert dato(iso) == forventet
 
 
 ### hele vejen igennem: hentning + udtræk mod en rigtig HTTP-server

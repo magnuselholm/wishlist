@@ -6,6 +6,14 @@ i et gitter med billede, pris og link.
 
 Indsætter man et produktlink, kan siden selv hente titel, pris og billede fra siden.
 
+## Kontoen
+
+Klik på dit navn i topbjælken for at komme til **Min konto**. Her retter du navn og
+e-mail (e-mailen er den, du logger ind med) og skifter adgangskode – det sidste kræver
+den nuværende kode. Nederst kan kontoen slettes: ønskelister, ønsker og uploadede
+billeder følger med, og delelinkene holder op med at virke. Det kræver adgangskoden og
+kan ikke fortrydes.
+
 ## Invitationer
 
 Siden er lukket: man kan kun oprette en bruger med en invitationskode. Koderne laves
@@ -84,7 +92,7 @@ app.py              starter appen
 config.py           indstillinger
 app/__init__.py     samler appen: blueprints, CSRF, filtre
 app/models.py       SQLite-skema og alle forespørgsler
-app/auth.py         opret bruger, log ind/ud, login-krav, admin-krav og CSRF
+app/auth.py         opret bruger, log ind/ud, kontoen, login-krav, admin-krav og CSRF
 app/invitationer.py invitationskoder: oversigt, nye koder og spærring
 app/routes.py       ønskelister, ønsker og /api/skrab
 app/deling.py       gæstevisningen på /delt/<nøgle> og reservationer

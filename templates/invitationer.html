@@ -71,7 +71,7 @@
                                 <span class="mærkat">Opbrugt</span>
                             {% else %}
                                 <span class="mærkat taget">Virker</span>
-                                {% if invitation['udløber'] %}<br><small>til {{ invitation['udløber'] }}</small>{% endif %}
+                                {% if invitation['udløber'] %}<br><small>til {{ invitation['udløber'] | dato }}</small>{% endif %}
                             {% endif %}
                         </td>
                         <td class="højre">

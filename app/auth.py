@@ -16,6 +16,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from app.billeder import slet_upload
 from app.models import (
     antal_brugere,
     brug_invitation,
@@ -23,7 +24,12 @@ from app.models import (
     hent_bruger,
     hent_bruger_på_email,
     hent_invitation_på_kode,
+    hent_lister,
+    hent_ønsker,
+    opdater_adgangskode,
+    opdater_bruger,
     opret_bruger,
+    slet_bruger,
 )
 
 ### login, oprettelse af bruger og beskyttelse af requests
@@ -204,6 +210,88 @@ def login():
         return redirect(sikker_næste(request.form.get("næste")) or url_for("main.lister"))
 
     return render_template("login.html", næste=request.args.get("næste", ""))
+
+
+### kontoen
+
+
+@bp.route("/konto")
+@login_påkrævet
+def konto():
+    return render_template("konto.html", konto=hent_aktuel_bruger())
+
+
+@bp.route("/konto/oplysninger", methods=["POST"])
+@login_påkrævet
+def ret_oplysninger():
+    bruger = hent_aktuel_bruger()
+    navn = (request.form.get("navn") or "").strip()[:80]
+    email = (request.form.get("email") or "").strip().lower()
+
+    fejl = None
+    if not navn:
+        fejl = "Skriv dit navn."
+    elif not EMAIL_MØNSTER.match(email):
+        fejl = "Skriv en gyldig e-mail."
+    else:
+        anden = hent_bruger_på_email(email)
+        if anden and anden["id"] != bruger["id"]:
+            fejl = "Der findes allerede en bruger med den e-mail."
+
+    if fejl:
+        flash(fejl, "fejl")
+        return render_template("konto.html", konto=bruger, navn=navn, email=email), 400
+
+    opdater_bruger(bruger["id"], navn, email)
+    flash("Oplysningerne er gemt.", "ok")
+    return redirect(url_for("auth.konto"))
+
+
+@bp.route("/konto/adgangskode", methods=["POST"])
+@login_påkrævet
+def ret_adgangskode():
+    bruger = hent_aktuel_bruger()
+    nuværende = request.form.get("nuværende") or ""
+    ny = request.form.get("ny") or ""
+    ny_igen = request.form.get("ny_igen") or ""
+
+    fejl = None
+    if not check_password_hash(bruger["adgangskode"], nuværende):
+        fejl = "Den nuværende adgangskode passer ikke."
+    elif len(ny) < MIN_KODE_LÆNGDE:
+        fejl = f"Den nye adgangskode skal være mindst {MIN_KODE_LÆNGDE} tegn."
+    elif ny != ny_igen:
+        fejl = "De to nye adgangskoder er ikke ens."
+    elif ny == nuværende:
+        fejl = "Den nye adgangskode er den samme som den gamle."
+
+    if fejl:
+        flash(fejl, "fejl")
+        return render_template("konto.html", konto=bruger), 400
+
+    opdater_adgangskode(bruger["id"], generate_password_hash(ny))
+    flash("Adgangskoden er skiftet.", "ok")
+    return redirect(url_for("auth.konto"))
+
+
+@bp.route("/konto/slet", methods=["POST"])
+@login_påkrævet
+def slet_konto():
+    bruger = hent_aktuel_bruger()
+
+    if not check_password_hash(bruger["adgangskode"], request.form.get("adgangskode") or ""):
+        flash("Skriv din adgangskode for at slette kontoen.", "fejl")
+        return render_template("konto.html", konto=bruger), 400
+
+    # billederne ligger uden for basen, så de skal fjernes før rækkerne forsvinder
+    for liste in hent_lister(bruger["id"]):
+        for ønske in hent_ønsker(liste["id"]):
+            slet_upload(ønske["billede"])
+
+    slet_bruger(bruger["id"])
+    session.clear()
+    flash("Din konto og alle dine ønskelister er slettet.", "ok")
+    return redirect(url_for("main.index"))
 
 
 @bp.route("/logud", methods=["POST"])

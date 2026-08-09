@@ -132,6 +132,17 @@ button.knap {
     color: var(--fare);
 }
 
+.knap.farlig,
+button.knap.farlig {
+    background: var(--fare);
+    border-color: var(--fare);
+}
+
+.knap.farlig:hover {
+    background: #9e2f22;
+    border-color: #9e2f22;
+}
+
 .knaprække {
     display: flex;
     align-items: center;
