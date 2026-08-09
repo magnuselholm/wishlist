@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block titel %}Invitationer{% endblock %}
+
+{% block indhold %}
+<section class="sidehoved">
+    <div>
+        <h1>Invitationer</h1>
+        <p class="manchet">Ingen kan oprette sig uden en kode herfra. Send linket til den,
+            du vil invitere – koden står i linket, så den ikke skal skrives af.</p>
+    </div>
+    <button type="button" class="knap" data-vis="ny-invitation">Ny kode</button>
+</section>
+
+<form method="POST" action="{{ url_for('invitationer.opret') }}" class="kort lodret skjult" id="ny-invitation">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <label for="note">Hvem er den til? <span class="valgfri">(valgfri)</span></label>
+    <input type="text" id="note" name="note" placeholder="Fx Mormor" maxlength="120">
+
+    <label for="maks_brug">Hvor mange må bruge den? <span class="valgfri">(tomt = ubegrænset)</span></label>
+    <input type="text" id="maks_brug" name="maks_brug" placeholder="1" inputmode="numeric">
+
+    <label for="udløber">Udløber <span class="valgfri">(valgfri)</span></label>
+    <input type="date" id="udløber" name="udløber" min="{{ i_dag }}">
+
+    <label for="kode">Kode <span class="valgfri">(tomt = vi finder selv på en)</span></label>
+    <input type="text" id="kode" name="kode" placeholder="ABCD-2345" maxlength="40">
+
+    <div class="knaprække">
+        <button type="submit" class="knap">Lav koden</button>
+        <button type="button" class="knap sekundær" data-skjul="ny-invitation">Fortryd</button>
+    </div>
+</form>
+
+{% if invitationer %}
+    <div class="tabelkort">
+        <table class="tabel">
+            <thead>
+                <tr>
+                    <th>Kode</th>
+                    <th>Til</th>
+                    <th>Brugt</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invitation in invitationer %}
+                    {% set udløbet = invitation['udløber'] and invitation['udløber'] < i_dag %}
+                    {% set opbrugt = invitation['maks_brug'] and invitation['brugt'] >= invitation['maks_brug'] %}
+                    <tr{% if invitation['spærret'] or udløbet or opbrugt %} class="dæmpet-række"{% endif %}>
+                        <td>
+                            <code>{{ invitation['kode'] }}</code>
+                            <button type="button" class="tekstknap lille"
+                                    data-kopiér-tekst="{{ url_for('auth.opret', kode=invitation['kode'], _external=True) }}">
+                                Kopiér link
+                            </button>
+                        </td>
+                        <td>{{ invitation['note'] or '–' }}</td>
+                        <td>
+                            {{ invitation['brugt'] }}{% if invitation['maks_brug'] %} af {{ invitation['maks_brug'] }}{% endif %}
+                            {% if invitation['navne'] %}<br><small>{{ invitation['navne'] }}</small>{% endif %}
+                        </td>
+                        <td>
+                            {% if invitation['spærret'] %}
+                                <span class="mærkat">Lukket</span>
+                            {% elif udløbet %}
+                                <span class="mærkat">Udløbet</span>
+                            {% elif opbrugt %}
+                                <span class="mærkat">Opbrugt</span>
+                            {% else %}
+                                <span class="mærkat taget">Virker</span>
+                                {% if invitation['udløber'] %}<br><small>til {{ invitation['udløber'] }}</small>{% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="højre">
+                            {% if invitation['spærret'] %}
+                                <form method="POST" action="{{ url_for('invitationer.åbn', invitation_id=invitation['id']) }}">
+                                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                    <button type="submit" class="tekstknap">Åbn igen</button>
+                                </form>
+                            {% else %}
+                                <form method="POST" action="{{ url_for('invitationer.spær', invitation_id=invitation['id']) }}"
+                                      data-bekræft="Luk koden “{{ invitation['kode'] }}”?">
+                                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                    <button type="submit" class="tekstknap farlig">Luk</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="status" id="kopi-status"></p>
+{% else %}
+    <p class="tom">Der er ingen koder endnu. Lav den første herover.</p>
+{% endif %}
+{% endblock %}

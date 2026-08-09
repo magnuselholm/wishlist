@@ -13,6 +13,9 @@
             {% if bruger %}
                 <span class="hilsen">{{ bruger['navn'] }}</span>
                 <a href="{{ url_for('main.lister') }}">Mine ønskelister</a>
+                {% if bruger['admin'] %}
+                    <a href="{{ url_for('invitationer.oversigt') }}">Invitationer</a>
+                {% endif %}
                 <form method="POST" action="{{ url_for('auth.logud') }}">
                     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                     <button type="submit" class="tekstknap">Log ud</button>

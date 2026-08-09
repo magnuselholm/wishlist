@@ -28,13 +28,24 @@ def klient(app):
     return app.test_client()
 
 
-def opret_og_login(klient, email="test@eksempel.dk", kode="hemmeligt123"):
+def opret_og_login(klient, email="test@eksempel.dk", kode="hemmeligt123", invitation="", navn="Test Testesen"):
+    """Den første bruger i en tom base slipper for invitationskode."""
     return klient.post(
         "/opret-bruger",
-        data={"navn": "Test Testesen", "email": email, "adgangskode": kode,
-              "adgangskode_igen": kode, "_csrf": csrf(klient)},
+        data={"navn": navn, "email": email, "adgangskode": kode, "adgangskode_igen": kode,
+              "invitation": invitation, "_csrf": csrf(klient)},
         follow_redirects=True,
     )
+
+
+def lav_invitationskode(admin, note="Familie", maks_brug="", udløber=""):
+    """Admin laver en kode og plukker den nyeste ud af oversigten."""
+    admin.post(
+        "/invitationer/opret",
+        data={"note": note, "maks_brug": maks_brug, "udløber": udløber, "_csrf": csrf(admin)},
+    )
+    tekst = admin.get("/invitationer").get_data(as_text=True)
+    return re.search(r"<code>([\w-]+)</code>", tekst).group(1)
 
 
 def csrf(klient):
@@ -103,6 +114,169 @@ def test_login_kræves_for_lister(klient):
     svar = klient.get("/lister")
     assert svar.status_code == 302
     assert "/login" in svar.headers["Location"]
+
+
+### invitationer
+
+
+def test_første_bruger_slipper_for_kode_og_bliver_admin(app, klient):
+    svar = opret_og_login(klient)
+    assert "Mine ønskelister" in svar.get_data(as_text=True)
+    assert "Invitationer" in svar.get_data(as_text=True)  # kun admin ser linket
+
+    with app.app_context():
+        from app.models import hent_bruger_på_email
+
+        assert hent_bruger_på_email("test@eksempel.dk")["admin"] == 1
+
+
+def test_bruger_nummer_to_kan_ikke_oprette_sig_uden_kode(app):
+    a = app.test_client()
+    opret_og_login(a)
+
+    b = app.test_client()
+    svar = opret_og_login(b, "b@eksempel.dk")
+    assert svar.status_code == 400
+    assert "skal bruge en invitationskode" in svar.get_data(as_text=True)
+
+    svar = opret_og_login(b, "b@eksempel.dk", invitation="FISK-1234")
+    assert svar.status_code == 400
+    assert "kender vi ikke" in svar.get_data(as_text=True)
+
+
+def test_invitationskode_giver_adgang_men_ikke_admin(app):
+    a = app.test_client()
+    opret_og_login(a)
+    kode = lav_invitationskode(a, note="Mormor")
+
+    b = app.test_client()
+    svar = opret_og_login(b, "mormor@eksempel.dk", invitation=kode, navn="Mormor Hansen")
+    assert "Mine ønskelister" in svar.get_data(as_text=True)
+    assert "Invitationer" not in svar.get_data(as_text=True)
+    assert b.get("/invitationer").status_code == 403
+
+    # admin kan se hvem der kom ind på koden
+    tekst = a.get("/invitationer").get_data(as_text=True)
+    assert "Mormor Hansen" in tekst and "Mormor" in tekst
+
+
+def test_kode_kan_kun_bruges_det_aftalte_antal_gange(app):
+    a = app.test_client()
+    opret_og_login(a)
+    kode = lav_invitationskode(a, maks_brug="1")
+
+    b = app.test_client()
+    assert "Mine ønskelister" in opret_og_login(b, "b@eksempel.dk", invitation=kode).get_data(as_text=True)
+
+    c = app.test_client()
+    svar = opret_og_login(c, "c@eksempel.dk", invitation=kode)
+    assert svar.status_code == 400
+    assert "brugt op" in svar.get_data(as_text=True)
+
+
+def test_kode_kan_spærres_og_åbnes_igen(app):
+    a = app.test_client()
+    opret_og_login(a)
+    kode = lav_invitationskode(a)
+
+    a.post("/invitationer/1/spær", data={"_csrf": csrf(a)})
+    b = app.test_client()
+    svar = opret_og_login(b, "b@eksempel.dk", invitation=kode)
+    assert svar.status_code == 400
+    assert "er lukket" in svar.get_data(as_text=True)
+
+    a.post("/invitationer/1/åbn", data={"_csrf": csrf(a)})
+    assert "Mine ønskelister" in opret_og_login(b, "b@eksempel.dk", invitation=kode).get_data(as_text=True)
+
+
+def test_udløbet_kode_afvises(app):
+    from datetime import date, timedelta
+
+    a = app.test_client()
+    opret_og_login(a)
+    i_går = (date.today() - timedelta(days=1)).isoformat()
+    kode = lav_invitationskode(a, udløber=i_går)
+
+    b = app.test_client()
+    svar = opret_og_login(b, "b@eksempel.dk", invitation=kode)
+    assert svar.status_code == 400
+    assert "udløbet" in svar.get_data(as_text=True)
+
+
+def test_koden_må_skrives_skævt(app):
+    """Koder bliver læst op i telefonen, så små bogstaver og manglende streg skal gå an."""
+    a = app.test_client()
+    opret_og_login(a)
+    kode = lav_invitationskode(a)
+
+    b = app.test_client()
+    svar = opret_og_login(b, "b@eksempel.dk", invitation=f"  {kode.replace('-', '').lower()} ")
+    assert "Mine ønskelister" in svar.get_data(as_text=True)
+
+
+def test_kode_i_linket_er_udfyldt_på_forhånd(app):
+    a = app.test_client()
+    opret_og_login(a)
+    kode = lav_invitationskode(a)
+
+    tekst = app.test_client().get(f"/opret-bruger?kode={kode}").get_data(as_text=True)
+    assert f'value="{kode}"' in tekst
+
+
+def test_egen_kode_kan_vælges_og_går_ikke_igen(app):
+    a = app.test_client()
+    opret_og_login(a)
+
+    a.post("/invitationer/opret", data={"kode": "familie-2026", "_csrf": csrf(a)})
+    assert "FAMILIE-2026" in a.get("/invitationer").get_data(as_text=True)
+
+    svar = a.post("/invitationer/opret", data={"kode": "FAMILIE-2026", "_csrf": csrf(a)},
+                  follow_redirects=True)
+    assert "findes allerede" in svar.get_data(as_text=True)
+
+
+def test_kun_admin_kommer_til_invitationerne(app):
+    assert app.test_client().get("/invitationer").status_code == 302  # ikke logget ind
+
+    a = app.test_client()
+    opret_og_login(a)
+    b = app.test_client()
+    opret_og_login(b, "b@eksempel.dk", invitation=lav_invitationskode(a))
+
+    assert b.get("/invitationer").status_code == 403
+    assert b.post("/invitationer/opret", data={"_csrf": csrf(b)}).status_code == 403
+    assert b.post("/invitationer/1/spær", data={"_csrf": csrf(b)}).status_code == 403
+
+
+def test_gammel_base_uden_admin_får_en(tmp_path):
+    """Brugere fra før invitationerne: den ældste skal kunne lave koder bagefter."""
+    import sqlite3
+
+    sti = tmp_path / "uden_admin.db"
+    gammel = sqlite3.connect(sti)
+    gammel.executescript("""
+        CREATE TABLE brugere (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
+                              navn TEXT NOT NULL, adgangskode TEXT NOT NULL, oprettet TEXT NOT NULL);
+        INSERT INTO brugere (email, navn, adgangskode, oprettet)
+             VALUES ('magnus@eksempel.dk', 'Magnus', 'x', '2025-01-01'),
+                    ('anden@eksempel.dk', 'Anden', 'x', '2025-02-01');
+    """)
+    gammel.commit()
+    gammel.close()
+
+    class Test(Config):
+        DATABASE = str(sti)
+        UPLOAD_MAPPE = str(tmp_path / "uploads")
+        SECRET_KEY = "test"
+        TESTING = True
+
+    app = create_app(Test)
+    with app.app_context():
+        from app.models import get_db
+
+        rækker = get_db().execute("SELECT navn, admin FROM brugere ORDER BY id").fetchall()
+
+    assert [(r["navn"], r["admin"]) for r in rækker] == [("Magnus", 1), ("Anden", 0)]
 
 
 ### lister og ønsker
@@ -175,7 +349,7 @@ def test_man_kan_ikke_se_andres_lister(app):
     a.post("/liste/1/nyt-ønske", data={"titel": "Hemmeligt ønske", "_csrf": csrf(a)})
 
     b = app.test_client()
-    opret_og_login(b, "b@eksempel.dk")
+    opret_og_login(b, "b@eksempel.dk", invitation=lav_invitationskode(a))
 
     assert b.get("/liste/1").status_code == 404
     assert b.get("/ønske/1/rediger").status_code == 404
