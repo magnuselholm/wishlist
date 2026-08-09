@@ -5,11 +5,24 @@
 {% block indhold %}
 <section class="kort smal">
     <h1>Opret bruger</h1>
+    {% if første_bruger %}
+        <p class="manchet">Basen er tom, så du bliver den første bruger – og den der laver
+            invitationskoder til de andre.</p>
+    {% endif %}
     <form method="POST" action="{{ url_for('auth.opret') }}" class="lodret">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
+        {% if not første_bruger %}
+            <label for="invitation">Invitationskode</label>
+            <input type="text" id="invitation" name="invitation" value="{{ invitation or '' }}"
+                   placeholder="ABCD-2345" maxlength="40" required
+                   {% if not invitation %}autofocus{% endif %}>
+            <small>Den du har fået af den, der inviterede dig.</small>
+        {% endif %}
+
         <label for="navn">Navn</label>
-        <input type="text" id="navn" name="navn" value="{{ navn or '' }}" required autofocus>
+        <input type="text" id="navn" name="navn" value="{{ navn or '' }}" required
+               {% if første_bruger or invitation %}autofocus{% endif %}>
 
         <label for="email">E-mail</label>
         <input type="email" id="email" name="email" value="{{ email or '' }}" required>

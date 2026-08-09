@@ -1,5 +1,6 @@
 import re
 import secrets
+from datetime import date
 from functools import wraps
 
 from flask import (
@@ -15,7 +16,15 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app.models import hent_bruger, hent_bruger_på_email, opret_bruger
+from app.models import (
+    antal_brugere,
+    brug_invitation,
+    frigiv_invitation,
+    hent_bruger,
+    hent_bruger_på_email,
+    hent_invitation_på_kode,
+    opret_bruger,
+)
 
 ### login, oprettelse af bruger og beskyttelse af requests
 
@@ -41,6 +50,19 @@ def login_påkrævet(view):
     def wrapper(*args, **kwargs):
         if hent_aktuel_bruger() is None:
             return redirect(url_for("auth.login", næste=request.full_path))
+        return view(*args, **kwargs)
+
+    return wrapper
+
+
+def admin_påkrævet(view):
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        bruger = hent_aktuel_bruger()
+        if bruger is None:
+            return redirect(url_for("auth.login", næste=request.full_path))
+        if not bruger["admin"]:
+            abort(403, "Kun den der styrer invitationerne har adgang hertil.")
         return view(*args, **kwargs)
 
     return wrapper
@@ -74,11 +96,17 @@ def opret():
     if hent_aktuel_bruger():
         return redirect(url_for("main.lister"))
 
+    # en helt tom base skal kunne få sin første bruger – ellers var der ingen til at
+    # lave invitationer, og siden kunne aldrig komme i gang
+    første_bruger = antal_brugere() == 0
+
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         navn = (request.form.get("navn") or "").strip()
         kode = request.form.get("adgangskode") or ""
         kode_igen = request.form.get("adgangskode_igen") or ""
+        invitationskode = normaliser_invitationskode(request.form.get("invitation"))
+        invitation = None
 
         fejl = None
         if not navn:
@@ -91,18 +119,70 @@ def opret():
             fejl = "De to adgangskoder er ikke ens."
         elif hent_bruger_på_email(email):
             fejl = "Der findes allerede en bruger med den e-mail."
+        elif not første_bruger:
+            invitation = hent_invitation_på_kode(invitationskode) if invitationskode else None
+            fejl = _invitation_fejl(invitationskode, invitation)
+
+        # koden holdes fri først, så to der opretter sig samtidig ikke deler den sidste plads
+        if not fejl and invitation is not None and not brug_invitation(invitation["id"]):
+            fejl = "Invitationskoden blev brugt op lige nu. Spørg om en ny."
 
         if fejl:
             flash(fejl, "fejl")
-            return render_template("opret_bruger.html", email=email, navn=navn), 400
+            return render_template(
+                "opret_bruger.html",
+                email=email,
+                navn=navn,
+                invitation=invitationskode,
+                første_bruger=første_bruger,
+            ), 400
 
-        bruger_id = opret_bruger(email, navn, generate_password_hash(kode))
+        try:
+            bruger_id = opret_bruger(
+                email,
+                navn,
+                generate_password_hash(kode),
+                invitation_id=invitation["id"] if invitation else None,
+                admin=første_bruger,
+            )
+        except Exception:
+            if invitation is not None:
+                frigiv_invitation(invitation["id"])
+            raise
+
         session.clear()
         session["bruger_id"] = bruger_id
         flash(f"Velkommen, {navn}!", "ok")
         return redirect(url_for("main.lister"))
 
-    return render_template("opret_bruger.html")
+    return render_template(
+        "opret_bruger.html",
+        invitation=normaliser_invitationskode(request.args.get("kode")),
+        første_bruger=første_bruger,
+    )
+
+
+def normaliser_invitationskode(tekst):
+    """“ jul7k4m ” bliver til “JUL7-K4M” – koder læses op i telefonen og skrives forkert."""
+    kode = "".join((tekst or "").split()).upper()
+    if len(kode) == 8 and kode.isalnum():
+        kode = f"{kode[:4]}-{kode[4:]}"
+    return kode[:40]
+
+
+def _invitation_fejl(kode, invitation):
+    """Fortæller hvorfor en kode ikke kan bruges. None betyder at den er god."""
+    if not kode:
+        return "Du skal bruge en invitationskode for at oprette dig."
+    if invitation is None:
+        return "Den invitationskode kender vi ikke."
+    if invitation["spærret"]:
+        return "Den invitationskode er lukket."
+    if invitation["udløber"] and invitation["udløber"] < date.today().isoformat():
+        return "Den invitationskode er udløbet."
+    if invitation["maks_brug"] is not None and invitation["brugt"] >= invitation["maks_brug"]:
+        return "Den invitationskode er brugt op."
+    return None
 
 
 @bp.route("/login", methods=["GET", "POST"])

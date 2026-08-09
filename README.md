@@ -6,6 +6,24 @@ i et gitter med billede, pris og link.
 
 Indsætter man et produktlink, kan siden selv hente titel, pris og billede fra siden.
 
+## Invitationer
+
+Siden er lukket: man kan kun oprette en bruger med en invitationskode. Koderne laves
+under **Invitationer** i topbjælken, og hver kode kan have en note om hvem den er til,
+et loft over hvor mange der må bruge den, og en udløbsdato. Koden står i linket
+(`/opret-bruger?kode=ABCD-2345`), så den ikke skal skrives af – men den kan også tastes
+i hånden, og små bogstaver og manglende bindestreg går an.
+
+Går en kode et forkert sted hen, lukker **Luk** den uden at røre de andre. Oversigten
+viser hvem der er kommet ind på hver kode.
+
+Kun brugere med admin-flaget kan se og lave koder. Første gang appen møder en tom
+database, slipper den allerførste bruger for kode og bliver admin – ellers var der ingen
+til at invitere de andre. I en base der allerede har brugere, bliver den ældste bruger
+admin, når appen starter første gang med invitationerne slået til.
+
+Gæster med et delelink skal ikke bruge nogen kode – de opretter sig jo ikke.
+
 ## Deling og reservationer
 
 Hver ønskeliste har sit eget link, som du finder under **Del liste**. Alle med linket kan
@@ -66,7 +84,8 @@ app.py              starter appen
 config.py           indstillinger
 app/__init__.py     samler appen: blueprints, CSRF, filtre
 app/models.py       SQLite-skema og alle forespørgsler
-app/auth.py         opret bruger, log ind/ud, login-krav og CSRF
+app/auth.py         opret bruger, log ind/ud, login-krav, admin-krav og CSRF
+app/invitationer.py invitationskoder: oversigt, nye koder og spærring
 app/routes.py       ønskelister, ønsker og /api/skrab
 app/deling.py       gæstevisningen på /delt/<nøgle> og reservationer
 app/skrab.py        henter titel, pris og billede fra et produktlink
