@@ -1,4 +1,4 @@
-from wekzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from datetime import date
 from pathlib import Path
