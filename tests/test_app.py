@@ -1,4 +1,5 @@
 import io
+import re
 import sys
 from pathlib import Path
 
@@ -42,6 +43,12 @@ def csrf(klient):
         if "_csrf" not in session:
             session["_csrf"] = "test-token"
         return session["_csrf"]
+
+
+def delelink(klient, liste_id=1):
+    """Plukker gæstelinket ud af ejerens listeside."""
+    tekst = klient.get(f"/liste/{liste_id}").get_data(as_text=True)
+    return re.search(r"/delt/([\w-]+)", tekst).group(1)
 
 
 ### brugere
@@ -183,6 +190,200 @@ def test_manglende_csrf_token_afvises(klient):
     opret_og_login(klient)
     svar = klient.post("/lister/opret", data={"titel": "Uden token"})
     assert svar.status_code == 400
+
+
+### deling og reservationer
+
+
+@pytest.fixture
+def delt(app):
+    """En liste med to ønsker, delt af ejeren. Giver (ejer, nøgle)."""
+    ejer = app.test_client()
+    opret_og_login(ejer, "ejer@eksempel.dk")
+    ejer.post("/lister/opret", data={"titel": "Jul", "_csrf": csrf(ejer)})
+    ejer.post("/liste/1/nyt-ønske", data={"titel": "Kaffekværn", "pris": "1299", "_csrf": csrf(ejer)})
+    ejer.post("/liste/1/nyt-ønske", data={"titel": "Bog", "_csrf": csrf(ejer)})
+    return ejer, delelink(ejer)
+
+
+def test_gæst_kan_se_delt_liste_uden_login(app, delt):
+    _, nøgle = delt
+    gæst = app.test_client()
+
+    tekst = gæst.get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert "Jul" in tekst
+    assert "Kaffekværn" in tekst and "1.299 kr." in tekst
+    assert "Test Testesen" in tekst  # listen viser hvem den kommer fra
+    assert "Reserver" in tekst
+    # gæsten må ikke kunne rette i listen
+    assert "Tilføj ønske" not in tekst and "Slet" not in tekst
+
+
+def test_ukendt_delelink_giver_404(app, delt):
+    assert app.test_client().get("/delt/findes-ikke").status_code == 404
+
+
+def test_gæst_reserverer_og_andre_gæster_ser_det(app, delt):
+    _, nøgle = delt
+    en = app.test_client()
+    en.get(f"/delt/{nøgle}")
+
+    svar = en.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(en)}, follow_redirects=True)
+    assert "Du har reserveret" in svar.get_data(as_text=True)
+
+    anden = app.test_client()
+    tekst = anden.get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert "Reserveret" in tekst
+    assert "Du har reserveret" not in tekst
+
+
+def test_et_ønske_kan_kun_reserveres_af_én(app, delt):
+    _, nøgle = delt
+    en = app.test_client()
+    en.get(f"/delt/{nøgle}")
+    en.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(en)})
+
+    anden = app.test_client()
+    anden.get(f"/delt/{nøgle}")
+    svar = anden.post(
+        f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(anden)}, follow_redirects=True
+    )
+    assert "En anden nåede" in svar.get_data(as_text=True)
+    assert "Du har reserveret" not in svar.get_data(as_text=True)
+
+
+def test_kun_ens_egen_reservation_kan_fortrydes(app, delt):
+    _, nøgle = delt
+    en = app.test_client()
+    en.get(f"/delt/{nøgle}")
+    en.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(en)})
+
+    anden = app.test_client()
+    anden.get(f"/delt/{nøgle}")
+    svar = anden.post(
+        f"/delt/{nøgle}/ønske/1/fortryd", data={"_csrf": csrf(anden)}, follow_redirects=True
+    )
+    assert "kun fortryde din egen" in svar.get_data(as_text=True)
+
+    svar = en.post(f"/delt/{nøgle}/ønske/1/fortryd", data={"_csrf": csrf(en)}, follow_redirects=True)
+    assert "Reservationen er fjernet" in svar.get_data(as_text=True)
+    # ønsket er frit igen
+    assert "Reserveret" not in app.test_client().get(f"/delt/{nøgle}").get_data(as_text=True)
+
+
+def test_ejeren_kan_ikke_se_reservationer(app, delt):
+    ejer, nøgle = delt
+    gæst = app.test_client()
+    gæst.get(f"/delt/{nøgle}")
+    gæst.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(gæst)})
+
+    # hverken på sin egen liste …
+    tekst = ejer.get("/liste/1").get_data(as_text=True)
+    assert "Kaffekværn" in tekst
+    assert _viser_reservation(tekst) is False
+
+    # … eller når ejeren åbner sit eget delelink
+    tekst = ejer.get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert "Kaffekværn" in tekst
+    assert _viser_reservation(tekst) is False
+    assert ">Reserver<" not in tekst  # og kan heller ikke reservere derfra
+
+
+def _viser_reservation(tekst):
+    """Sandt hvis siden røber at et ønske er reserveret."""
+    return any(
+        mærke in tekst
+        for mærke in ('mærkat taget', 'ønskekort reserveret', "Du har reserveret", "Reserveret<")
+    )
+
+
+def test_ejeren_kan_ikke_reservere(app, delt):
+    ejer, nøgle = delt
+    assert ejer.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(ejer)}).status_code == 403
+
+
+def test_reservation_kræver_csrf_token(app, delt):
+    _, nøgle = delt
+    gæst = app.test_client()
+    gæst.get(f"/delt/{nøgle}")
+    assert gæst.post(f"/delt/{nøgle}/ønske/1/reserver").status_code == 400
+
+
+def test_ønske_fra_en_anden_liste_kan_ikke_reserveres(app, delt):
+    ejer, nøgle = delt
+    ejer.post("/lister/opret", data={"titel": "Anden liste", "_csrf": csrf(ejer)})
+    ejer.post("/liste/2/nyt-ønske", data={"titel": "Fremmed ønske", "_csrf": csrf(ejer)})
+
+    gæst = app.test_client()
+    gæst.get(f"/delt/{nøgle}")
+    assert gæst.post(f"/delt/{nøgle}/ønske/3/reserver", data={"_csrf": csrf(gæst)}).status_code == 404
+
+
+def test_nyt_delelink_lukker_det_gamle(app, delt):
+    ejer, gammel = delt
+    ejer.post("/liste/1/nyt-link", data={"_csrf": csrf(ejer)})
+    ny = delelink(ejer)
+
+    assert ny != gammel
+    assert app.test_client().get(f"/delt/{gammel}").status_code == 404
+    assert app.test_client().get(f"/delt/{ny}").status_code == 200
+
+
+def test_reservation_forsvinder_med_ønsket(app, delt):
+    ejer, nøgle = delt
+    gæst = app.test_client()
+    gæst.get(f"/delt/{nøgle}")
+    gæst.post(f"/delt/{nøgle}/ønske/1/reserver", data={"_csrf": csrf(gæst)})
+
+    ejer.post("/ønske/1/slet", data={"_csrf": csrf(ejer)})
+    with app.app_context():
+        from app.models import get_db
+
+        assert get_db().execute("SELECT COUNT(*) AS n FROM reservationer").fetchone()["n"] == 0
+
+
+def test_lister_får_hver_sin_nøgle(app):
+    klient = app.test_client()
+    opret_og_login(klient)
+    klient.post("/lister/opret", data={"titel": "Jul", "_csrf": csrf(klient)})
+    klient.post("/lister/opret", data={"titel": "Fødselsdag", "_csrf": csrf(klient)})
+
+    assert delelink(klient, 1) != delelink(klient, 2)
+
+
+def test_gammel_liste_får_et_delelink(tmp_path):
+    """Lister oprettet før deling skal virke bagefter."""
+    import sqlite3
+
+    sti = tmp_path / "uden_nøgle.db"
+    gammel = sqlite3.connect(sti)
+    gammel.executescript("""
+        CREATE TABLE brugere (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
+                              navn TEXT NOT NULL, adgangskode TEXT NOT NULL, oprettet TEXT NOT NULL);
+        CREATE TABLE lister (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             bruger_id INTEGER NOT NULL REFERENCES brugere(id) ON DELETE CASCADE,
+                             titel TEXT NOT NULL, beskrivelse TEXT, oprettet TEXT NOT NULL);
+        INSERT INTO brugere (email, navn, adgangskode, oprettet)
+             VALUES ('anna@eksempel.dk', 'Anna', 'x', '2025-01-01');
+        INSERT INTO lister (bruger_id, titel, oprettet) VALUES (1, 'Gammel liste', '2025-01-01');
+    """)
+    gammel.commit()
+    gammel.close()
+
+    class Test(Config):
+        DATABASE = str(sti)
+        UPLOAD_MAPPE = str(tmp_path / "uploads")
+        SECRET_KEY = "test"
+        TESTING = True
+
+    app = create_app(Test)
+    with app.app_context():
+        from app.models import get_db
+
+        nøgle = get_db().execute("SELECT del_nøgle FROM lister WHERE id = 1").fetchone()["del_nøgle"]
+
+    assert nøgle
+    assert "Gammel liste" in app.test_client().get(f"/delt/{nøgle}").get_data(as_text=True)
 
 
 ### billeder

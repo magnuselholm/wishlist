@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ liste['titel'] }} – ønskeliste{% endblock %}
+
+{% block indhold %}
+{% if ejer %}
+    <p class="tilbage"><a href="{{ url_for('main.vis_liste', liste_id=liste['id']) }}">← Tilbage til listen</a></p>
+    <p class="besked">Sådan ser listen ud for dem du deler den med.
+        Om noget er reserveret, kan du ikke se – det er kun for gæsterne.</p>
+{% endif %}
+
+<section class="sidehoved">
+    <div>
+        <p class="meta">Ønskeliste fra {{ liste['ejer_navn'] }}</p>
+        <h1>{{ liste['titel'] }}</h1>
+        {% if liste['beskrivelse'] %}<p class="manchet">{{ liste['beskrivelse'] }}</p>{% endif %}
+        <p class="meta">
+            {{ ønsker | length }} {{ 'ønske' if ønsker | length == 1 else 'ønsker' }}
+            {% if samlet %}· i alt {{ samlet | kroner }}{% endif %}
+        </p>
+    </div>
+</section>
+
+{% if not ejer %}
+    <p class="besked">Reserver et ønske, så de andre gæster kan se at det er taget.
+        {{ liste['ejer_navn'] }} får det ikke at vide.</p>
+{% endif %}
+
+{% if ønsker %}
+    <div class="gitter">
+        {% for ønske in ønsker %}
+            <article class="ønskekort{% if not ejer and ønske['reserveret'] %} reserveret{% endif %}">
+                <div class="billede">
+                    {% if ønske['billede'] %}
+                        <img src="{{ ønske['billede'] }}" alt="{{ ønske['titel'] }}" loading="lazy">
+                    {% else %}
+                        <span class="pladsholder">🎁</span>
+                    {% endif %}
+                </div>
+
+                <div class="indhold">
+                    <h2>{{ ønske['titel'] }}</h2>
+
+                    <p class="pris">
+                        {% if ønske['pris'] %}{{ ønske['pris'] | kroner }}{% else %}<span class="ukendt">Pris ikke angivet</span>{% endif %}
+                    </p>
+
+                    {% if ønske['størrelse'] %}<p class="mærkat">Størrelse: {{ ønske['størrelse'] }}</p>{% endif %}
+                    {% if ønske['beskrivelse'] %}<p class="beskrivelse">{{ ønske['beskrivelse'] }}</p>{% endif %}
+
+                    {% if ønske['link'] %}
+                        <a class="produktlink" href="{{ ønske['link'] }}" target="_blank" rel="noopener noreferrer nofollow">Se produkt ↗</a>
+                    {% endif %}
+                </div>
+
+                {% if not ejer %}
+                    <footer class="kortbund">
+                        {% if ønske['min_reservation'] %}
+                            <span class="mærkat taget">Du har reserveret</span>
+                            <form method="POST" action="{{ url_for('deling.fortryd', noegle=noegle, onske_id=ønske['id']) }}">
+                                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                <button type="submit" class="tekstknap">Fortryd</button>
+                            </form>
+                        {% elif ønske['reserveret'] %}
+                            <span class="mærkat taget">Reserveret</span>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('deling.reserver', noegle=noegle, onske_id=ønske['id']) }}">
+                                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                <button type="submit" class="tekstknap">Reserver</button>
+                            </form>
+                        {% endif %}
+                    </footer>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="tom">Der er ingen ønsker på listen endnu.</p>
+{% endif %}
+{% endblock %}

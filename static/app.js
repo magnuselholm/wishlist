@@ -16,7 +16,36 @@ document.addEventListener("click", (hændelse) => {
         const felt = document.getElementById(skjul.dataset.skjul);
         if (felt) felt.classList.add("skjult");
     }
+
+    const kopiér = hændelse.target.closest("[data-kopiér]");
+    if (kopiér) {
+        const felt = document.getElementById(kopiér.dataset.kopiér);
+        if (felt) kopiér_tekst(felt);
+    }
 });
+
+// kopiér delelinket til udklipsholderen
+
+async function kopiér_tekst(felt) {
+    const status = document.getElementById("kopi-status");
+    const skriv = (tekst, klasse) => {
+        if (status) {
+            status.textContent = tekst;
+            status.className = "status " + klasse;
+        }
+    };
+
+    felt.select();
+    felt.setSelectionRange(0, felt.value.length);
+
+    try {
+        await navigator.clipboard.writeText(felt.value);
+        skriv("Linket er kopieret.", "ok");
+    } catch (fejl) {
+        // uden adgang til udklipsholderen er teksten i det mindste markeret
+        skriv("Tryk Ctrl/Cmd + C for at kopiere linket.", "");
+    }
+}
 
 document.addEventListener("submit", (hændelse) => {
     const besked = hændelse.target.dataset.bekræft;
