@@ -161,6 +161,25 @@ def hent_bruger(bruger_id):
     return db.execute("SELECT * FROM brugere WHERE id = ?", (bruger_id,)).fetchone()
 
 
+def opdater_bruger(bruger_id, navn, email):
+    db = get_db()
+    db.execute("UPDATE brugere SET navn = ?, email = ? WHERE id = ?", (navn, email, bruger_id))
+    db.commit()
+
+
+def opdater_adgangskode(bruger_id, adgangskode_hash):
+    db = get_db()
+    db.execute("UPDATE brugere SET adgangskode = ? WHERE id = ?", (adgangskode_hash, bruger_id))
+    db.commit()
+
+
+def slet_bruger(bruger_id):
+    """Lister, ønsker og reservationer følger med via ON DELETE CASCADE."""
+    db = get_db()
+    db.execute("DELETE FROM brugere WHERE id = ?", (bruger_id,))
+    db.commit()
+
+
 ### invitationer
 
 # uden 0/O og 1/I, så en kode kan læses op i telefonen uden misforståelser
