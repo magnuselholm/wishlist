@@ -8,7 +8,7 @@
 </head>
 <body>
     <header class="topbjælke">
-        <a class="logo" href="{{ url_for('main.index') }}">🎁 Ønskeseddel</a>
+        <a class="logo" href="{{ url_for('main.index') }}">Ønskeseddel</a>
         <nav>
             {% if bruger %}
                 <a class="hilsen" href="{{ url_for('auth.konto') }}">{{ bruger['navn'] }}</a>
