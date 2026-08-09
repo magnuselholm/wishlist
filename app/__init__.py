@@ -22,10 +22,11 @@ def create_app(config=Config):
     with app.app_context():
         init_db()
 
-    from app import auth, routes
+    from app import auth, deling, routes
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(routes.bp)
+    app.register_blueprint(deling.bp)
 
     app.before_request(auth.tjek_csrf)
     app.jinja_env.filters["kroner"] = kroner
@@ -33,6 +34,10 @@ def create_app(config=Config):
     @app.context_processor
     def skabelon_variabler():
         return {"bruger": auth.hent_aktuel_bruger(), "csrf_token": auth.csrf_token}
+
+    @app.errorhandler(403)
+    def forbudt(e):
+        return render_template("fejl.html", kode=403, besked=e.description), 403
 
     @app.errorhandler(404)
     def ikke_fundet(e):

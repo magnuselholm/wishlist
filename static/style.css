@@ -199,6 +199,10 @@ button.knap {
     font-size: 1.5rem;
 }
 
+.kort h2 {
+    font-size: 1.2rem;
+}
+
 .skjult {
     display: none !important;
 }
@@ -455,6 +459,29 @@ img.forhåndsvisning,
     border-radius: 999px;
     padding: 2px 10px;
     color: var(--dæmpet);
+}
+
+/* deling og reservationer */
+
+.delelink {
+    margin-top: 16px;
+}
+
+.delelink input {
+    flex: 1 1 320px;
+    background: #faf9f7;
+    color: var(--dæmpet);
+}
+
+.mærkat.taget {
+    background: #eef4ee;
+    color: #2f6b39;
+    font-weight: 600;
+}
+
+.ønskekort.reserveret .billede img,
+.ønskekort.reserveret .indhold {
+    opacity: .6;
 }
 
 .beskrivelse {

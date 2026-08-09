@@ -6,6 +6,20 @@ i et gitter med billede, pris og link.
 
 Indsætter man et produktlink, kan siden selv hente titel, pris og billede fra siden.
 
+## Deling og reservationer
+
+Hver ønskeliste har sit eget link, som du finder under **Del liste**. Alle med linket kan
+se ønskerne uden at oprette en bruger, og de kan reservere et ønske, så de andre gæster
+kan se at det er taget. Et ønske kan kun reserveres af én, og man kan fortryde sin egen
+reservation igen.
+
+Ejeren af listen får aldrig reservationerne at se – hverken på sin egen liste eller når
+ejeren åbner sit eget delelink. (Logger man ud og åbner linket, er man en gæst som alle
+andre, så helt gemt er det kun for den der ikke leder.)
+
+Er linket havnet et forkert sted, laver **Lav nyt link** en ny nøgle, og det gamle link
+holder op med at virke.
+
 ## Kom i gang
 
 ```bash
@@ -54,6 +68,7 @@ app/__init__.py     samler appen: blueprints, CSRF, filtre
 app/models.py       SQLite-skema og alle forespørgsler
 app/auth.py         opret bruger, log ind/ud, login-krav og CSRF
 app/routes.py       ønskelister, ønsker og /api/skrab
+app/deling.py       gæstevisningen på /delt/<nøgle> og reservationer
 app/skrab.py        henter titel, pris og billede fra et produktlink
 app/billeder.py     uploadede billeder
 templates/          sider (Jinja2)

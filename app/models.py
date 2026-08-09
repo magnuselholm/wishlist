@@ -1,3 +1,4 @@
+import secrets
 import sqlite3
 from datetime import datetime, timezone
 
@@ -38,6 +39,10 @@ def init_db():
     if "ønsker" in _tabeller(db) and "liste_id" not in _kolonner(db, "ønsker"):
         db.execute("ALTER TABLE ønsker RENAME TO ønsker_gammel")
 
+    # lister fra før deling manglede en nøgle til gæstelinket. Den fyldes ud nedenfor.
+    if "lister" in _tabeller(db) and "del_nøgle" not in _kolonner(db, "lister"):
+        db.execute("ALTER TABLE lister ADD COLUMN del_nøgle TEXT")
+
     db.executescript("""
         CREATE TABLE IF NOT EXISTS brugere (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,6 +57,7 @@ def init_db():
             bruger_id INTEGER NOT NULL REFERENCES brugere(id) ON DELETE CASCADE,
             titel TEXT NOT NULL,
             beskrivelse TEXT,
+            del_nøgle TEXT,
             oprettet TEXT NOT NULL
         );
 
@@ -67,10 +73,29 @@ def init_db():
             oprettet TEXT NOT NULL
         );
 
+        -- en gæst kan reservere et ønske. Ejeren får aldrig de her rækker at se.
+        CREATE TABLE IF NOT EXISTS reservationer (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ønske_id INTEGER NOT NULL UNIQUE REFERENCES ønsker(id) ON DELETE CASCADE,
+            gæst TEXT NOT NULL,
+            oprettet TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_lister_bruger ON lister(bruger_id);
         CREATE INDEX IF NOT EXISTS idx_ønsker_liste ON ønsker(liste_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_lister_del_nøgle ON lister(del_nøgle);
     """)
+
+    # lister oprettet før deling har endnu ingen nøgle
+    for række in db.execute("SELECT id FROM lister WHERE del_nøgle IS NULL").fetchall():
+        db.execute("UPDATE lister SET del_nøgle = ? WHERE id = ?", (ny_del_nøgle(), række["id"]))
+
     db.commit()
+
+
+def ny_del_nøgle():
+    """Nøglen i gæstelinket. Den skal være svær at gætte, for den er hele adgangen."""
+    return secrets.token_urlsafe(16)
 
 
 def _nu():
@@ -129,14 +154,40 @@ def hent_liste(liste_id, bruger_id):
     ).fetchone()
 
 
+def hent_liste_på_nøgle(nøgle):
+    """Henter en delt liste ud fra nøglen i gæstelinket – uanset hvem der spørger."""
+    db = get_db()
+    return db.execute(
+        """
+        SELECT lister.*, brugere.navn AS ejer_navn
+          FROM lister
+          JOIN brugere ON brugere.id = lister.bruger_id
+         WHERE lister.del_nøgle = ?
+        """,
+        (nøgle,),
+    ).fetchone()
+
+
 def opret_liste(bruger_id, titel, beskrivelse):
     db = get_db()
     markør = db.execute(
-        "INSERT INTO lister (bruger_id, titel, beskrivelse, oprettet) VALUES (?, ?, ?, ?)",
-        (bruger_id, titel, beskrivelse, _nu()),
+        "INSERT INTO lister (bruger_id, titel, beskrivelse, del_nøgle, oprettet) VALUES (?, ?, ?, ?, ?)",
+        (bruger_id, titel, beskrivelse, ny_del_nøgle(), _nu()),
     )
     db.commit()
     return markør.lastrowid
+
+
+def forny_del_nøgle(liste_id, bruger_id):
+    """Giver listen et nyt gæstelink, så det gamle holder op med at virke."""
+    nøgle = ny_del_nøgle()
+    db = get_db()
+    db.execute(
+        "UPDATE lister SET del_nøgle = ? WHERE id = ? AND bruger_id = ?",
+        (nøgle, liste_id, bruger_id),
+    )
+    db.commit()
+    return nøgle
 
 
 def opdater_liste(liste_id, bruger_id, titel, beskrivelse):
@@ -162,6 +213,31 @@ def hent_ønsker(liste_id):
     return db.execute(
         "SELECT * FROM ønsker WHERE liste_id = ? ORDER BY id DESC", (liste_id,)
     ).fetchall()
+
+
+def hent_ønsker_til_gæst(liste_id, gæst):
+    """Som hent_ønsker, men med reservationerne. Bruges kun i gæstevisningen."""
+    db = get_db()
+    return db.execute(
+        """
+        SELECT ønsker.*,
+               reservationer.id IS NOT NULL AS reserveret,
+               COALESCE(reservationer.gæst = ?, 0) AS min_reservation
+          FROM ønsker
+          LEFT JOIN reservationer ON reservationer.ønske_id = ønsker.id
+         WHERE ønsker.liste_id = ?
+         ORDER BY ønsker.id DESC
+        """,
+        (gæst, liste_id),
+    ).fetchall()
+
+
+def hent_ønske_i_liste(ønske_id, liste_id):
+    """Henter et ønske, men kun hvis det ligger på den delte liste."""
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM ønsker WHERE id = ? AND liste_id = ?", (ønske_id, liste_id)
+    ).fetchone()
 
 
 def hent_ønske(ønske_id, bruger_id):
@@ -207,3 +283,27 @@ def slet_ønske(ønske_id):
     db = get_db()
     db.execute("DELETE FROM ønsker WHERE id = ?", (ønske_id,))
     db.commit()
+
+
+### reservationer
+
+
+def reserver_ønske(ønske_id, gæst):
+    """Reserverer et ønske. Falsk hvis en anden nåede det først."""
+    db = get_db()
+    markør = db.execute(
+        "INSERT OR IGNORE INTO reservationer (ønske_id, gæst, oprettet) VALUES (?, ?, ?)",
+        (ønske_id, gæst, _nu()),
+    )
+    db.commit()
+    return markør.rowcount == 1
+
+
+def fortryd_reservation(ønske_id, gæst):
+    """Fjerner en reservation. Falsk hvis den tilhører en anden gæst."""
+    db = get_db()
+    markør = db.execute(
+        "DELETE FROM reservationer WHERE ønske_id = ? AND gæst = ?", (ønske_id, gæst)
+    )
+    db.commit()
+    return markør.rowcount == 1

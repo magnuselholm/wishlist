@@ -16,7 +16,31 @@
     </div>
     <div class="knaprække">
         <a class="knap" href="{{ url_for('main.nyt_ønske', liste_id=liste['id']) }}">Tilføj ønske</a>
+        <button type="button" class="knap sekundær" data-vis="del-liste">Del liste</button>
         <button type="button" class="knap sekundær" data-vis="rediger-liste">Rediger liste</button>
+    </div>
+</section>
+
+{% set delelink = url_for('deling.vis_delt_liste', noegle=liste['del_nøgle'], _external=True) %}
+<section class="kort skjult" id="del-liste">
+    <h2>Del listen</h2>
+    <p class="manchet">Alle med linket kan se ønskerne og reservere dem – uden at oprette en bruger.
+        Hvad der er reserveret, kan du ikke selv se.</p>
+
+    <div class="linjerække delelink">
+        <input type="text" id="delelink" value="{{ delelink }}" readonly aria-label="Link til listen">
+        <button type="button" class="knap sekundær" data-kopiér="delelink">Kopiér</button>
+    </div>
+    <p class="status" id="kopi-status"></p>
+
+    <div class="knaprække">
+        <a class="knap sekundær" href="{{ url_for('deling.vis_delt_liste', noegle=liste['del_nøgle']) }}">Se listen som gæst</a>
+        <form method="POST" action="{{ url_for('main.nyt_delelink', liste_id=liste['id']) }}"
+              data-bekræft="Lav et nyt link? Det gamle holder op med at virke.">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="tekstknap">Lav nyt link</button>
+        </form>
+        <button type="button" class="tekstknap" data-skjul="del-liste">Luk</button>
     </div>
 </section>
 

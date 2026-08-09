@@ -12,6 +12,7 @@ from flask import (
 from app.auth import hent_aktuel_bruger, login_påkrævet
 from app.billeder import BilledFejl, gem_upload, gyldig_billed_url, slet_upload
 from app.models import (
+    forny_del_nøgle,
     hent_liste,
     hent_lister,
     hent_ønske,
@@ -79,6 +80,15 @@ def rediger_liste(liste_id):
     else:
         opdater_liste(liste_id, hent_aktuel_bruger()["id"], titel[:120], beskrivelse[:500])
         flash("Ønskelisten er opdateret.", "ok")
+    return redirect(url_for("main.vis_liste", liste_id=liste_id))
+
+
+@bp.route("/liste/<int:liste_id>/nyt-link", methods=["POST"])
+@login_påkrævet
+def nyt_delelink(liste_id):
+    _min_liste(liste_id)
+    forny_del_nøgle(liste_id, hent_aktuel_bruger()["id"])
+    flash("Listen har fået et nyt link. Det gamle virker ikke længere.", "ok")
     return redirect(url_for("main.vis_liste", liste_id=liste_id))
 
 
