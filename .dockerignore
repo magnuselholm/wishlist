@@ -1,7 +1,10 @@
 venv/
-ønsker.db
+.venv/
 __pycache__/
+*.pyc
 .pytest_cache/
-static/uploads/*
-!static/uploads/.gitkeep
+.git/
 .env
+*.db
+static/uploads/*
+tests/
