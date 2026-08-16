@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ person['navn'] }}s ønskelister{% endblock %}
+
+{% block indhold %}
+<p class="tilbage"><a href="{{ url_for('main.lister') }}">← Mine ønskelister</a></p>
+
+<section class="sidehoved">
+    <div>
+        <h1>{{ person['navn'] }}</h1>
+        <p class="manchet">Reserver et ønske, så de andre kan se det er taget –
+            {{ person['navn'] }} får det ikke at vide.</p>
+    </div>
+
+    <div class="knaprække">
+        {% if følger %}
+            <form method="POST" action="{{ url_for('brugere.følg_ikke', bruger_id=person['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button type="submit" class="knap sekundær">★ Følger</button>
+            </form>
+        {% else %}
+            <form method="POST" action="{{ url_for('brugere.følg', bruger_id=person['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button type="submit" class="knap sekundær">☆ Følg</button>
+            </form>
+        {% endif %}
+    </div>
+</section>
+
+{% if lister %}
+    <div class="gitter lister">
+        {% for liste in lister %}
+            <a class="listekort" href="{{ url_for('deling.vis_delt_liste', noegle=liste['del_nøgle']) }}">
+                <div class="billede">
+                    {% if liste['forsidebillede'] %}
+                        <img src="{{ liste['forsidebillede'] }}" alt="" loading="lazy">
+                    {% else %}
+                        <span class="pladsholder">🎁</span>
+                    {% endif %}
+                </div>
+                <div class="indhold">
+                    <h2>{{ liste['titel'] }}</h2>
+                    {% if liste['beskrivelse'] %}<p class="beskrivelse">{{ liste['beskrivelse'] }}</p>{% endif %}
+                    <p class="meta">
+                        {{ liste['antal'] }} {{ 'ønske' if liste['antal'] == 1 else 'ønsker' }}
+                    </p>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="tom">{{ person['navn'] }} har ingen ønskelister at vise lige nu.</p>
+{% endif %}
+{% endblock %}

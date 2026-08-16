@@ -3,6 +3,8 @@
 {% block titel %}Mine ønskelister{% endblock %}
 
 {% block indhold %}
+<div class="medsidebjælke">
+<div class="hovedspalte">
 <section class="sidehoved">
     <h1>Mine ønskelister</h1>
     <button type="button" class="knap" data-vis="ny-liste">Ny ønskeliste</button>
@@ -40,6 +42,7 @@
                     <p class="meta">
                         {{ liste['antal'] }} {{ 'ønske' if liste['antal'] == 1 else 'ønsker' }}
                         {% if liste['samlet_pris'] %}· {{ liste['samlet_pris'] | kroner }}{% endif %}
+                        {% if liste['skjult_for_andre'] %}· skjult for de andre{% endif %}
                     </p>
                 </div>
             </a>
@@ -48,4 +51,71 @@
 {% else %}
     <p class="tom">Du har ingen ønskelister endnu. Opret din første herover.</p>
 {% endif %}
+</div>
+
+<aside class="sidebjælke">
+    <section class="kort">
+        <h2>Alle på siden</h2>
+        <p class="manchet">Klik på en for at se deres ønskelister. Følg dem, du vil have øverst.</p>
+
+        {% if andre %}
+            <input type="search" id="brugersøg" placeholder="Søg efter navn" aria-label="Søg efter navn"
+                   data-søg="brugerliste" autocomplete="off">
+
+            <ul class="folkeliste" id="brugerliste">
+                {% for person in andre %}
+                    <li data-navn="{{ person['navn'] | lower }}">
+                        <a href="{{ url_for('brugere.vis', bruger_id=person['id']) }}">
+                            <strong>{{ person['navn'] }}</strong>
+                            <span class="meta">{% if person['antal_lister'] %}{{ person['antal_lister'] }} {{ 'ønskeliste' if person['antal_lister'] == 1 else 'ønskelister' }}{% else %}ingen lister endnu{% endif %}</span>
+                        </a>
+
+                        {% if person['følger'] %}
+                            <form method="POST" action="{{ url_for('brugere.følg_ikke', bruger_id=person['id']) }}">
+                                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                <input type="hidden" name="næste" value="{{ url_for('main.lister') }}">
+                                <button type="submit" class="stjerne fulgt" title="Du følger {{ person['navn'] }}"
+                                        aria-label="Følg ikke længere {{ person['navn'] }}">★</button>
+                            </form>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('brugere.følg', bruger_id=person['id']) }}">
+                                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                                <input type="hidden" name="næste" value="{{ url_for('main.lister') }}">
+                                <button type="submit" class="stjerne" title="Følg {{ person['navn'] }}"
+                                        aria-label="Følg {{ person['navn'] }}">☆</button>
+                            </form>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            <p class="meta tomt-søg skjult" id="brugerliste-tom">Ingen med det navn.</p>
+        {% else %}
+            <p class="meta">Der er ikke andre endnu.
+                {% if bruger['admin'] %}
+                    <a href="{{ url_for('invitationer.oversigt') }}">Inviter nogen</a>.
+                {% endif %}
+            </p>
+        {% endif %}
+    </section>
+
+    {% if fulgte_lister %}
+        <section class="kort">
+            <h2>Lister du følger</h2>
+            <p class="manchet">Enkelte lister, du har fået et link til.</p>
+
+            <ul class="folkeliste">
+                {% for liste in fulgte_lister %}
+                    <li>
+                        <a href="{{ url_for('deling.vis_delt_liste', noegle=liste['del_nøgle']) }}">
+                            <strong>{{ liste['titel'] }}</strong>
+                            <span class="meta">Fra {{ liste['ejer_navn'] }} ·
+                                {{ liste['antal'] }} {{ 'ønske' if liste['antal'] == 1 else 'ønsker' }}</span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+</aside>
+</div>
 {% endblock %}

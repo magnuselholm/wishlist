@@ -13,7 +13,10 @@ from app.auth import hent_aktuel_bruger, login_påkrævet
 from app.billeder import BilledFejl, gem_upload, gyldig_billed_url, slet_upload
 from app.models import (
     forny_del_nøgle,
+    hent_alle_brugere,
+    hent_fulgte_lister,
     hent_liste,
+    hent_liste_følgere,
     hent_lister,
     hent_ønske,
     hent_ønsker,
@@ -44,7 +47,14 @@ def index():
 @bp.route("/lister")
 @login_påkrævet
 def lister():
-    return render_template("lister.html", lister=hent_lister(hent_aktuel_bruger()["id"]))
+    """Egne lister – og ved siden af dem alle de andre på siden."""
+    bruger = hent_aktuel_bruger()
+    return render_template(
+        "lister.html",
+        lister=hent_lister(bruger["id"]),
+        andre=hent_alle_brugere(bruger["id"]),
+        fulgte_lister=hent_fulgte_lister(bruger["id"]),
+    )
 
 
 @bp.route("/lister/opret", methods=["POST"])
@@ -66,7 +76,13 @@ def vis_liste(liste_id):
     liste = _min_liste(liste_id)
     ønsker = hent_ønsker(liste_id)
     samlet = sum(ø["pris"] for ø in ønsker if ø["pris"])
-    return render_template("liste.html", liste=liste, ønsker=ønsker, samlet=samlet)
+    return render_template(
+        "liste.html",
+        liste=liste,
+        ønsker=ønsker,
+        samlet=samlet,
+        følgere=hent_liste_følgere(liste_id),
+    )
 
 
 @bp.route("/liste/<int:liste_id>/rediger", methods=["POST"])
@@ -75,10 +91,11 @@ def rediger_liste(liste_id):
     _min_liste(liste_id)
     titel = (request.form.get("titel") or "").strip()
     beskrivelse = (request.form.get("beskrivelse") or "").strip()
+    skjult = bool(request.form.get("skjult_for_andre"))
     if not titel:
         flash("Ønskelisten skal have en titel.", "fejl")
     else:
-        opdater_liste(liste_id, hent_aktuel_bruger()["id"], titel[:120], beskrivelse[:500])
+        opdater_liste(liste_id, hent_aktuel_bruger()["id"], titel[:120], beskrivelse[:500], skjult)
         flash("Ønskelisten er opdateret.", "ok")
     return redirect(url_for("main.vis_liste", liste_id=liste_id))
 
@@ -88,7 +105,11 @@ def rediger_liste(liste_id):
 def nyt_delelink(liste_id):
     _min_liste(liste_id)
     forny_del_nøgle(liste_id, hent_aktuel_bruger()["id"])
-    flash("Listen har fået et nyt link. Det gamle virker ikke længere.", "ok")
+    flash(
+        "Listen har fået et nyt link. Det gamle virker ikke længere, "
+        "og de der fulgte listen, følger den ikke mere.",
+        "ok",
+    )
     return redirect(url_for("main.vis_liste", liste_id=liste_id))
 
 

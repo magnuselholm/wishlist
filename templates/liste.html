@@ -12,6 +12,7 @@
         <p class="meta">
             {{ ønsker | length }} {{ 'ønske' if ønsker | length == 1 else 'ønsker' }}
             {% if samlet %}· i alt {{ samlet | kroner }}{% endif %}
+            {% if liste['skjult_for_andre'] %}· skjult for de andre{% endif %}
         </p>
     </div>
     <div class="knaprække">
@@ -33,6 +34,12 @@
     </div>
     <p class="status" id="kopi-status"></p>
 
+    {% if følgere %}
+        <p class="meta">Følges af
+            {% for følger in følgere %}{{ følger['navn'] }}{% if not loop.last %}, {% endif %}{% endfor %}.
+            De har listen liggende ved siden af deres egne. Hvad de har reserveret, kan du stadig ikke se.</p>
+    {% endif %}
+
     <div class="knaprække">
         <a class="knap sekundær" href="{{ url_for('deling.vis_delt_liste', noegle=liste['del_nøgle']) }}">Se listen som gæst</a>
         <form method="POST" action="{{ url_for('main.nyt_delelink', liste_id=liste['id']) }}"
@@ -52,6 +59,14 @@
 
     <label for="beskrivelse">Beskrivelse</label>
     <textarea id="beskrivelse" name="beskrivelse" rows="2" maxlength="500">{{ liste['beskrivelse'] or '' }}</textarea>
+
+    <label class="afkrydsning">
+        <input type="checkbox" name="skjult_for_andre" value="1"
+               {% if liste['skjult_for_andre'] %}checked{% endif %}>
+        Skjul listen for de andre på siden
+    </label>
+    <small>Listen står ikke på din side, når de andre kigger. Delelinket virker stadig,
+        så gaven til en af dem kan ligge her, uden at de opdager det.</small>
 
     <div class="knaprække">
         <button type="submit" class="knap">Gem</button>

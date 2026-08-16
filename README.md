@@ -39,12 +39,38 @@ se ønskerne uden at oprette en bruger, og de kan reservere et ønske, så de an
 kan se at det er taget. Et ønske kan kun reserveres af én, og man kan fortryde sin egen
 reservation igen.
 
+Er man logget ind, hører reservationen til brugeren. Så kan den fortrydes fra en anden
+maskine bagefter, og den overlever at man logger ud og ind igen. Er man ikke logget ind,
+hører den som før til browseren – og reserverer man som gæst og logger ind bagefter,
+følger reservationerne med over på brugeren, så de ikke bliver hængende uden ejermand.
+
 Ejeren af listen får aldrig reservationerne at se – hverken på sin egen liste eller når
 ejeren åbner sit eget delelink. (Logger man ud og åbner linket, er man en gæst som alle
 andre, så helt gemt er det kun for den der ikke leder.)
 
 Er linket havnet et forkert sted, laver **Lav nyt link** en ny nøgle, og det gamle link
-holder op med at virke.
+holder op med at virke. De der fulgte listen, følger den heller ikke længere – ellers
+lukkede det nye link jo ingen ude.
+
+## De andre på siden
+
+Ved siden af dine egne ønskelister står alle andre på siden. Klik på en for at se deres
+ønskelister, og videre ind i den enkelte liste, hvor ønskerne kan reserveres. Der skal
+ikke spørges om lov: siden er lukket i forvejen, og de der er kommet ind på en
+invitationskode, er familie og venner.
+
+Er der blevet mange, kan der søges på navn i feltet over listen. Stjernen ved et navn
+følger personen, og de man følger, står øverst næste gang. At følge giver ikke adgang til
+noget – listerne kan ses i forvejen – det holder bare de rigtige øverst.
+
+En liste kan holdes uden for det med **Skjul listen for de andre på siden** under Rediger
+liste. Så står den ikke på din side, når de andre kigger, men delelinket virker stadig –
+så gaven til en af dem kan ligge her, uden at den det handler om, opdager det.
+
+Har man fået et delelink til en enkelt liste, kan man trykke **Følg listen**, når man er
+logget ind. Så står den under **Lister du følger** ved siden af ens egne, og linket skal
+ikke findes frem igen. Ejeren kan se hvem der følger listen – men stadig ikke hvad de har
+reserveret.
 
 ## Kom i gang
 
@@ -95,7 +121,8 @@ app/models.py       SQLite-skema og alle forespørgsler
 app/auth.py         opret bruger, log ind/ud, kontoen, login-krav, admin-krav og CSRF
 app/invitationer.py invitationskoder: oversigt, nye koder og spærring
 app/routes.py       ønskelister, ønsker og /api/skrab
-app/deling.py       gæstevisningen på /delt/<nøgle> og reservationer
+app/deling.py       gæstevisningen på /delt/<nøgle>, reservationer og at følge en liste
+app/brugere.py      de andre på siden: deres lister, og at følge dem
 app/skrab.py        henter titel, pris og billede fra et produktlink
 app/billeder.py     uploadede billeder
 templates/          sider (Jinja2)
@@ -121,3 +148,7 @@ kan udfyldes i hånden.
 Havde du den tidligere udgave (én fælles liste uden brugere), bliver den gamle tabel
 omdøbt til `ønsker_gammel` første gang appen starter. Ingenting slettes, men ønskerne
 skal oprettes igen under din egen bruger.
+
+Reservationstabellen bliver bygget om første gang appen starter bagefter, så en
+reservation også kan høre til en bruger. De gamle reservationer bliver stående som de
+er – de hører til browseren, indtil gæsten logger ind.

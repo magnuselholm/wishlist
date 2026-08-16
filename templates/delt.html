@@ -19,7 +19,31 @@
             {% if samlet %}· i alt {{ samlet | kroner }}{% endif %}
         </p>
     </div>
+
+    {% if not ejer %}
+        <div class="knaprække">
+            {% if not bruger %}
+                <a class="knap sekundær" href="{{ url_for('auth.login', næste=request.path) }}">Log ind for at følge listen</a>
+            {% elif følger %}
+                <form method="POST" action="{{ url_for('deling.følg_ikke', noegle=noegle) }}">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <span class="mærkat">Du følger listen</span>
+                    <button type="submit" class="tekstknap">Følg ikke længere</button>
+                </form>
+            {% else %}
+                <form method="POST" action="{{ url_for('deling.følg', noegle=noegle) }}">
+                    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button type="submit" class="knap sekundær">Følg listen</button>
+                </form>
+            {% endif %}
+        </div>
+    {% endif %}
 </section>
+
+{% if not ejer and bruger and not følger %}
+    <p class="besked">Følg listen, så ligger den ved siden af dine egne ønskelister –
+        uden at linket skal findes frem igen.</p>
+{% endif %}
 
 {% if not ejer %}
     <p class="besked">Reserver et ønske, så de andre gæster kan se at det er taget.

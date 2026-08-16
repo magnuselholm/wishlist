@@ -134,3 +134,26 @@ if (knap) {
         }
     });
 }
+
+// søg i oversigten over de andre på siden: rækkerne er der i forvejen, så
+// filtreringen kan ske her og nu uden at hente noget
+
+document.addEventListener("input", (hændelse) => {
+    const felt = hændelse.target.closest("[data-søg]");
+    if (!felt) return;
+
+    const liste = document.getElementById(felt.dataset.søg);
+    if (!liste) return;
+
+    const søgt = felt.value.trim().toLowerCase();
+    let fundet = 0;
+
+    for (const række of liste.children) {
+        const passer = !søgt || (række.dataset.navn || "").includes(søgt);
+        række.classList.toggle("skjult", !passer);
+        if (passer) fundet++;
+    }
+
+    const tom = document.getElementById(felt.dataset.søg + "-tom");
+    if (tom) tom.classList.toggle("skjult", fundet > 0);
+});
