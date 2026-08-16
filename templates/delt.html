@@ -7,6 +7,10 @@
     <p class="tilbage"><a href="{{ url_for('main.vis_liste', liste_id=liste['id']) }}">← Tilbage til listen</a></p>
     <p class="besked">Sådan ser listen ud for dem du deler den med.
         Om noget er reserveret, kan du ikke se – det er kun for gæsterne.</p>
+{% elif bruger %}
+    <p class="tilbage">
+        <a href="{{ url_for('brugere.vis', bruger_id=liste['bruger_id']) }}">← Alle {{ liste['ejer_navn'] | ejefald }} ønskelister</a>
+    </p>
 {% endif %}
 
 <section class="sidehoved">

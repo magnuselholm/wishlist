@@ -11,6 +11,7 @@
         <a class="logo" href="{{ url_for('main.index') }}">Ønskeseddel</a>
         <nav>
             {% if bruger %}
+                <a href="{{ url_for('main.index') }}">Forside</a>
                 <a class="hilsen" href="{{ url_for('auth.konto') }}">{{ bruger['navn'] }}</a>
                 <a href="{{ url_for('main.lister') }}">Mine ønskelister</a>
                 {% if bruger['admin'] %}
