@@ -3,6 +3,7 @@ import json
 import re
 import socket
 from urllib.parse import urljoin, urlparse
+from curl_cffi import requests as browser
 
 import requests
 from bs4 import BeautifulSoup
@@ -45,30 +46,33 @@ def skrab(url):
 
 def _hent_html(url):
     url = _normaliser(url)
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": BRUGERAGENT,
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "da-DK,da;q=0.9,en;q=0.8",
-    })
+    # curl_cffi efterligner en rigtig browsers TLS-håndtryk. Almindelig requests
+    # har et genkendeligt fingeraftryk som mange sider afviser med 403.
+    session = browser.Session()
 
-    # omdirigeringer følges manuelt, så hvert nyt mål også bliver kontrolleret
     for _ in range(MAKS_OMDIRIGERINGER):
         _tjek_adresse(url)
         try:
-            svar = session.get(url, timeout=TIMEOUT, allow_redirects=False, stream=True)
-        except requests.RequestException:
+            svar = session.get(
+                url,
+                impersonate="chrome",
+                headers={"Accept-Language": "da-DK,da;q=0.9,en;q=0.8"},
+                timeout=TIMEOUT,
+                allow_redirects=False,
+                stream=True,
+            )
+        except browser.RequestsError:
             raise SkrabFejl("Kunne ikke hente siden. Tjek at linket virker.")
 
-        with svar:
-            if svar.is_redirect or svar.is_permanent_redirect:
+        try:
+            if svar.status_code in (301, 302, 303, 307, 308):
                 mål = svar.headers.get("Location")
                 if not mål:
                     raise SkrabFejl("Siden sendte os videre uden at sige hvorhen.")
                 url = urljoin(url, mål)
                 continue
 
-            if svar.status_code == 403 or svar.status_code == 429:
+            if svar.status_code in (403, 429):
                 raise SkrabFejl("Siden blokerer for automatisk hentning. Udfyld felterne selv.")
             if svar.status_code >= 400:
                 raise SkrabFejl(f"Siden svarede med fejl {svar.status_code}.")
@@ -77,7 +81,16 @@ def _hent_html(url):
             if "html" not in indholdstype.lower():
                 raise SkrabFejl("Linket peger ikke på en almindelig webside.")
 
-            indhold = svar.raw.read(MAKS_BYTES, decode_content=True)
+            # loftet holdes, så et ondsindet link ikke kan fylde hukommelsen
+            stykker, hentet = [], 0
+            for stykke in svar.iter_content(chunk_size=65536):
+                stykker.append(stykke)
+                hentet += len(stykke)
+                if hentet >= MAKS_BYTES:
+                    break
+            indhold = b"".join(stykker)[:MAKS_BYTES]
+        finally:
+            svar.close()
 
         return indhold.decode(svar.encoding or _tegnsæt(indhold), errors="replace"), url
 
