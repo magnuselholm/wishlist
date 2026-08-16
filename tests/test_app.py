@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import create_app, dato, kroner  # noqa: E402
+from app import create_app, dato, ejefald, kroner  # noqa: E402
 from app.skrab import SkrabFejl, _find_billede, _find_pris, _find_titel, _tjek_adresse, læs_pris  # noqa: E402
 from config import Config  # noqa: E402
 
@@ -1307,3 +1307,46 @@ def test_gammel_reservation_uden_bruger_overlever_opdateringen(tmp_path):
     with klient.session_transaction() as session:
         session["gæst"] = "gammel-gæst"
     assert "Du har reserveret" in klient.get("/delt/gammel-nøgle").get_data(as_text=True)
+
+
+### topbjælke, tilbage-links og statiske filer
+
+
+def test_statiske_filer_får_et_tidsstempel_med(klient):
+    """Uden det sidder browseren med den gamle style.css efter en opdatering."""
+    tekst = klient.get("/login").get_data(as_text=True)
+    assert re.search(r"/static/style\.css\?v=\d+", tekst)
+    assert re.search(r"/static/app\.js\?v=\d+", tekst)
+
+
+def test_forside_står_i_topbjælken_når_man_er_logget_ind(klient):
+    opret_og_login(klient)
+    tekst = klient.get("/lister").get_data(as_text=True)
+    assert ">Forside<" in tekst
+
+
+def test_tilbage_fra_en_andens_liste(app, to_brugere):
+    ejer, nøgle, anden = to_brugere
+
+    # den der kigger, kan komme tilbage til personens øvrige lister
+    tekst = anden.get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert 'href="/bruger/1"' in tekst
+    assert "Alle Test Testesens ønskelister" in tekst
+
+    # ejeren kommer tilbage til sin egen liste, som før
+    tekst = ejer.get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert "Tilbage til listen" in tekst
+    assert "/bruger/1" not in tekst
+
+    # en gæst uden bruger har ingen steder at gå hen, og får ikke et dødt link
+    tekst = app.test_client().get(f"/delt/{nøgle}").get_data(as_text=True)
+    assert "/bruger/1" not in tekst
+
+
+@pytest.mark.parametrize(
+    "navn, forventet",
+    [("Anne", "Annes"), ("Magnus Elholm", "Magnus Elholms"), ("Jonas", "Jonas'"),
+     ("Lars", "Lars'"), ("", "")],
+)
+def test_ejefald(navn, forventet):
+    assert ejefald(navn) == forventet

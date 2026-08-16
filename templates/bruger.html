@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block titel %}{{ person['navn'] }}s ønskelister{% endblock %}
+{% block titel %}{{ person['navn'] | ejefald }} ønskelister{% endblock %}
 
 {% block indhold %}
 <p class="tilbage"><a href="{{ url_for('main.lister') }}">← Mine ønskelister</a></p>

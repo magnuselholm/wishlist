@@ -50,6 +50,22 @@ def create_app(config=Config):
     app.before_request(auth.tjek_csrf)
     app.jinja_env.filters["kroner"] = kroner
     app.jinja_env.filters["dato"] = dato
+    app.jinja_env.filters["ejefald"] = ejefald
+
+    @app.url_defaults
+    def statisk_udgave(endpoint, værdier):
+        """Hænger filens tidsstempel på /static/…, så style.css og app.js får en ny
+        adresse hver gang de bliver rettet.
+
+        Ellers sidder browseren (og alt hvad der cacher foran serveren) med den
+        gamle udgave efter en opdatering, og siden ser i stykker ud.
+        """
+        if endpoint != "static" or "filename" not in værdier:
+            return
+        try:
+            værdier["v"] = int((Path(app.static_folder) / værdier["filename"]).stat().st_mtime)
+        except OSError:
+            pass  # filen findes ikke – lad url_for lave adressen som den plejer
 
     @app.context_processor
     def skabelon_variabler():
@@ -87,6 +103,14 @@ def dato(iso):
     except ValueError:
         return str(iso)
     return f"{dag.day}. {MÅNEDER[dag.month - 1]} {dag.year}"
+
+
+def ejefald(navn):
+    """"Anne" -> "Annes", men "Jonas" -> "Jonas'" – dansk ejefald uden dobbelt-s."""
+    navn = (navn or "").strip()
+    if not navn:
+        return navn
+    return navn + "'" if navn[-1].lower() in "sxz" else navn + "s"
 
 
 def kroner(beløb):
