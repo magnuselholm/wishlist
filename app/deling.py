@@ -12,12 +12,17 @@ from flask import (
 
 from app.auth import hent_aktuel_bruger
 from app.models import (
+    er_blokeret,
     fortryd_reservation,
+    følg_liste,
+    følger_liste,
+    følger_person,
     hent_liste_på_nøgle,
     hent_ønske_i_liste,
     hent_ønsker,
     hent_ønsker_til_gæst,
     reserver_ønske,
+    stop_med_at_følge_liste,
 )
 
 ### gæstevisningen: alle med linket kan se listen og reservere ønsker
@@ -26,7 +31,8 @@ bp = Blueprint("deling", __name__)
 
 
 def gæst_id():
-    """Et tilfældigt id pr. browser, så en gæst kan fortryde sin egen reservation."""
+    """Et tilfældigt id pr. browser, så en gæst uden bruger kan fortryde sin egen
+    reservation. Er man logget ind, hænger reservationen i stedet på brugeren."""
     if "gæst" not in session:
         session["gæst"] = secrets.token_urlsafe(16)
         # reservationen skal overleve at browseren lukkes
@@ -34,15 +40,33 @@ def gæst_id():
     return session["gæst"]
 
 
+def hvem_reserverer():
+    """(bruger_id, gæst) – kun det ene af dem er sat."""
+    bruger = hent_aktuel_bruger()
+    if bruger is not None:
+        return bruger["id"], None
+    return None, gæst_id()
+
+
 @bp.route("/delt/<noegle>")
 def vis_delt_liste(noegle):
     liste = _delt_liste(noegle)
+    bruger = hent_aktuel_bruger()
 
     if _er_ejer(liste):
         # ejeren ser sin egen liste som gæsterne ser den – men uden reservationerne
         ønsker = hent_ønsker(liste["id"])
     else:
-        ønsker = hent_ønsker_til_gæst(liste["id"], gæst_id())
+        bruger_id, gæst = hvem_reserverer()
+        ønsker = hent_ønsker_til_gæst(liste["id"], bruger_id, gæst)
+
+    # den der følger ejeren, har allerede listen og skal ikke følge den to gange.
+    # Er listen skjult for vennerne, kommer den ikke den vej – så skal knappen frem.
+    via_person = (
+        bruger is not None
+        and not liste["skjult_for_venner"]
+        and følger_person(bruger["id"], liste["bruger_id"])
+    )
 
     samlet = sum(ønske["pris"] for ønske in ønsker if ønske["pris"])
     return render_template(
@@ -52,6 +76,8 @@ def vis_delt_liste(noegle):
         samlet=samlet,
         noegle=noegle,
         ejer=_er_ejer(liste),
+        følger=bruger is not None and følger_liste(bruger["id"], liste["id"]),
+        via_person=via_person,
     )
 
 
@@ -59,7 +85,8 @@ def vis_delt_liste(noegle):
 def reserver(noegle, onske_id):
     _gæstens_ønske(noegle, onske_id)
 
-    if reserver_ønske(onske_id, gæst_id()):
+    bruger_id, gæst = hvem_reserverer()
+    if reserver_ønske(onske_id, bruger_id, gæst):
         flash("Ønsket er reserveret. Det kan ejeren ikke se.", "ok")
     else:
         flash("En anden nåede desværre at reservere det ønske.", "fejl")
@@ -70,11 +97,51 @@ def reserver(noegle, onske_id):
 def fortryd(noegle, onske_id):
     _gæstens_ønske(noegle, onske_id)
 
-    if fortryd_reservation(onske_id, gæst_id()):
+    bruger_id, gæst = hvem_reserverer()
+    if fortryd_reservation(onske_id, bruger_id, gæst):
         flash("Reservationen er fjernet.", "ok")
     else:
         flash("Du kan kun fortryde din egen reservation.", "fejl")
     return redirect(url_for("deling.vis_delt_liste", noegle=noegle))
+
+
+### at følge listen: så skal linket ikke findes frem igen næste gang
+
+
+@bp.route("/delt/<noegle>/følg", methods=["POST"])
+def følg(noegle):
+    liste = _delt_liste(noegle)
+    if _er_ejer(liste):
+        abort(403, "Din egen liste ligger allerede under “Mine ønskelister”.")
+
+    bruger = hent_aktuel_bruger()
+    if bruger is None:
+        return _log_ind_først(noegle)
+
+    if følg_liste(bruger["id"], liste["id"]):
+        flash(f"Du følger nu “{liste['titel']}”. Den står under Venner.", "ok")
+    return redirect(url_for("deling.vis_delt_liste", noegle=noegle))
+
+
+@bp.route("/delt/<noegle>/følg-ikke", methods=["POST"])
+def følg_ikke(noegle):
+    liste = _delt_liste(noegle)
+
+    bruger = hent_aktuel_bruger()
+    if bruger is None:
+        return _log_ind_først(noegle)
+
+    if stop_med_at_følge_liste(bruger["id"], liste["id"]):
+        flash(f"Du følger ikke længere “{liste['titel']}”.", "ok")
+    return redirect(url_for("deling.vis_delt_liste", noegle=noegle))
+
+
+def _log_ind_først(noegle):
+    """Sender til login og tilbage til listen bagefter – ikke til den POST der ikke kan gentages."""
+    flash("Log ind for at følge listen.", "fejl")
+    return redirect(
+        url_for("auth.login", næste=url_for("deling.vis_delt_liste", noegle=noegle))
+    )
 
 
 ### hjælpefunktioner
@@ -83,6 +150,11 @@ def fortryd(noegle, onske_id):
 def _delt_liste(noegle):
     liste = hent_liste_på_nøgle(noegle)
     if liste is None:
+        abort(404)
+
+    # er man lukket ude, virker linket ikke – på samme måde som et gammelt link
+    bruger = hent_aktuel_bruger()
+    if bruger is not None and er_blokeret(liste["bruger_id"], bruger["id"]):
         abort(404)
     return liste
 

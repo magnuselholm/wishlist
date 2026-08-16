@@ -32,6 +32,7 @@ from app.models import (
     opdater_adgangskode,
     opdater_bruger,
     opret_bruger,
+    overtag_reservationer,
     slet_bruger,
 )
 
@@ -160,8 +161,7 @@ def opret():
                 frigiv_invitation(invitation["id"])
             raise
 
-        session.clear()
-        session["bruger_id"] = bruger_id
+        _log_ind(bruger_id)
         flash(f"Velkommen, {navn}!", "ok")
         return redirect(url_for("main.lister"))
 
@@ -210,11 +210,25 @@ def login():
             flash("Forkert e-mail eller adgangskode.", "fejl")
             return render_template("login.html", email=email), 401
 
-        session.clear()
-        session["bruger_id"] = bruger["id"]
+        _log_ind(bruger["id"])
         return redirect(sikker_næste(request.form.get("næste")) or url_for("main.lister"))
 
     return render_template("login.html", næste=request.args.get("næste", ""))
+
+
+def _log_ind(bruger_id):
+    """Rydder sessionen og logger brugeren ind.
+
+    Har man reserveret noget som gæst i den her browser, følger reservationerne med
+    over på brugeren. Ellers forsvandt de med sessionen, og ingen kunne fortryde dem
+    bagefter – heller ikke den der lavede dem.
+    """
+    gæst = session.get("gæst")
+    session.clear()
+    session["bruger_id"] = bruger_id
+
+    if overtag_reservationer(bruger_id, gæst):
+        flash("Dine reservationer hører nu til din bruger.", "ok")
 
 
 ### kontoen

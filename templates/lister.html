@@ -40,6 +40,7 @@
                     <p class="meta">
                         {{ liste['antal'] }} {{ 'ønske' if liste['antal'] == 1 else 'ønsker' }}
                         {% if liste['samlet_pris'] %}· {{ liste['samlet_pris'] | kroner }}{% endif %}
+                        {% if liste['skjult_for_venner'] %}· skjult for venner{% endif %}
                     </p>
                 </div>
             </a>

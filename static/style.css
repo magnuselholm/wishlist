@@ -667,3 +667,55 @@ img.forhåndsvisning,
         font-size: 1.9rem;
     }
 }
+
+/* venner */
+
+.venneafsnit {
+    margin-top: 40px;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+}
+
+.listekort .indhold {
+    text-decoration: none;
+    color: inherit;
+}
+
+.linjeliste {
+    list-style: none;
+    background: var(--kort);
+    border: 1px solid var(--kant);
+    border-radius: var(--radius);
+    box-shadow: var(--skygge);
+    overflow: hidden;
+}
+
+.linjeliste li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-top: 1px solid var(--kant);
+}
+
+.linjeliste li:first-child {
+    border-top: none;
+}
+
+.linjeliste .meta {
+    display: block;
+    margin-top: 0;
+}
+
+.afkrydsning {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.afkrydsning input {
+    width: auto;
+}
