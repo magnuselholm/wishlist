@@ -12,7 +12,7 @@
         <p class="meta">
             {{ ønsker | length }} {{ 'ønske' if ønsker | length == 1 else 'ønsker' }}
             {% if samlet %}· i alt {{ samlet | kroner }}{% endif %}
-            {% if liste['skjult_for_venner'] %}· skjult for dem der følger dig{% endif %}
+            {% if liste['skjult_for_andre'] %}· skjult for de andre{% endif %}
         </p>
     </div>
     <div class="knaprække">
@@ -37,7 +37,7 @@
     {% if følgere %}
         <p class="meta">Følges af
             {% for følger in følgere %}{{ følger['navn'] }}{% if not loop.last %}, {% endif %}{% endfor %}.
-            De finder listen under Venner, også uden linket. Hvad de har reserveret, kan du stadig ikke se.</p>
+            De har listen liggende ved siden af deres egne. Hvad de har reserveret, kan du stadig ikke se.</p>
     {% endif %}
 
     <div class="knaprække">
@@ -61,12 +61,12 @@
     <textarea id="beskrivelse" name="beskrivelse" rows="2" maxlength="500">{{ liste['beskrivelse'] or '' }}</textarea>
 
     <label class="afkrydsning">
-        <input type="checkbox" name="skjult_for_venner" value="1"
-               {% if liste['skjult_for_venner'] %}checked{% endif %}>
-        Skjul listen for dem der følger mig
+        <input type="checkbox" name="skjult_for_andre" value="1"
+               {% if liste['skjult_for_andre'] %}checked{% endif %}>
+        Skjul listen for de andre på siden
     </label>
-    <small>De ser den ikke under Venner. Delelinket virker stadig, så gaven til en af dem
-        kan stå her uden at de opdager det.</small>
+    <small>Listen står ikke på din side, når de andre kigger. Delelinket virker stadig,
+        så gaven til en af dem kan ligge her, uden at de opdager det.</small>
 
     <div class="knaprække">
         <button type="submit" class="knap">Gem</button>

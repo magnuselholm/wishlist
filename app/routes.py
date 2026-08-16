@@ -13,6 +13,8 @@ from app.auth import hent_aktuel_bruger, login_påkrævet
 from app.billeder import BilledFejl, gem_upload, gyldig_billed_url, slet_upload
 from app.models import (
     forny_del_nøgle,
+    hent_alle_brugere,
+    hent_fulgte_lister,
     hent_liste,
     hent_liste_følgere,
     hent_lister,
@@ -45,7 +47,14 @@ def index():
 @bp.route("/lister")
 @login_påkrævet
 def lister():
-    return render_template("lister.html", lister=hent_lister(hent_aktuel_bruger()["id"]))
+    """Egne lister – og ved siden af dem alle de andre på siden."""
+    bruger = hent_aktuel_bruger()
+    return render_template(
+        "lister.html",
+        lister=hent_lister(bruger["id"]),
+        andre=hent_alle_brugere(bruger["id"]),
+        fulgte_lister=hent_fulgte_lister(bruger["id"]),
+    )
 
 
 @bp.route("/lister/opret", methods=["POST"])
@@ -82,7 +91,7 @@ def rediger_liste(liste_id):
     _min_liste(liste_id)
     titel = (request.form.get("titel") or "").strip()
     beskrivelse = (request.form.get("beskrivelse") or "").strip()
-    skjult = bool(request.form.get("skjult_for_venner"))
+    skjult = bool(request.form.get("skjult_for_andre"))
     if not titel:
         flash("Ønskelisten skal have en titel.", "fejl")
     else:

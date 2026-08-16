@@ -51,9 +51,9 @@ def init_db():
         if "invitation_id" not in gamle:
             db.execute("ALTER TABLE brugere ADD COLUMN invitation_id INTEGER REFERENCES invitationer(id)")
 
-    # lister fra før vennerne kan ikke skjules for dem man følges af
-    if "lister" in _tabeller(db) and "skjult_for_venner" not in _kolonner(db, "lister"):
-        db.execute("ALTER TABLE lister ADD COLUMN skjult_for_venner INTEGER NOT NULL DEFAULT 0")
+    # lister fra før kan ikke holdes uden for de andre brugeres oversigt
+    if "lister" in _tabeller(db) and "skjult_for_andre" not in _kolonner(db, "lister"):
+        db.execute("ALTER TABLE lister ADD COLUMN skjult_for_andre INTEGER NOT NULL DEFAULT 0")
 
     # reservationer hørte før kun til en browser. Nu kan de også høre til en bruger, så
     # de kan fortrydes fra en anden maskine – og ikke går tabt ved log ind og log ud.
@@ -90,7 +90,7 @@ def init_db():
             titel TEXT NOT NULL,
             beskrivelse TEXT,
             del_nøgle TEXT,
-            skjult_for_venner INTEGER NOT NULL DEFAULT 0,
+            skjult_for_andre INTEGER NOT NULL DEFAULT 0,
             oprettet TEXT NOT NULL
         );
 
@@ -135,15 +135,6 @@ def init_db():
             oprettet TEXT NOT NULL,
             UNIQUE (følger_id, person_id),
             CHECK (følger_id != person_id)
-        );
-
-        -- den man har fjernet som følger, kan ikke følge igen eller bruge delelinket
-        CREATE TABLE IF NOT EXISTS blokeringer (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            bruger_id INTEGER NOT NULL REFERENCES brugere(id) ON DELETE CASCADE,
-            blokeret_id INTEGER NOT NULL REFERENCES brugere(id) ON DELETE CASCADE,
-            oprettet TEXT NOT NULL,
-            UNIQUE (bruger_id, blokeret_id)
         );
 
         -- invitationskoder: uden en gyldig kode kan ingen oprette sig
@@ -386,15 +377,15 @@ def forny_del_nøgle(liste_id, bruger_id):
     return nøgle
 
 
-def opdater_liste(liste_id, bruger_id, titel, beskrivelse, skjult_for_venner=False):
+def opdater_liste(liste_id, bruger_id, titel, beskrivelse, skjult_for_andre=False):
     db = get_db()
     db.execute(
         """
         UPDATE lister
-           SET titel = ?, beskrivelse = ?, skjult_for_venner = ?
+           SET titel = ?, beskrivelse = ?, skjult_for_andre = ?
          WHERE id = ? AND bruger_id = ?
         """,
-        (titel, beskrivelse, 1 if skjult_for_venner else 0, liste_id, bruger_id),
+        (titel, beskrivelse, 1 if skjult_for_andre else 0, liste_id, bruger_id),
     )
     db.commit()
 
@@ -562,29 +553,23 @@ def følger_liste(følger_id, liste_id):
 
 
 def hent_fulgte_lister(følger_id):
-    """De enkeltlister brugeren følger – uden dem der allerede kommer med personen.
+    """De enkeltlister brugeren følger, fra et delelink de har fået.
 
-    En skjult liste bliver stående her: den er fulgt med et delelink, ejeren har selv
-    sendt, og den skal ikke forsvinde bare fordi man også følger ejeren.
+    Skjulte lister bliver stående: linket har ejeren selv sendt, og listen er kun
+    skjult i oversigten over ejerens lister.
     """
     db = get_db()
     return db.execute(
         """
         SELECT lister.*, brugere.navn AS ejer_navn,
-               (SELECT COUNT(*) FROM ønsker WHERE ønsker.liste_id = lister.id) AS antal,
-               (SELECT billede FROM ønsker
-                 WHERE ønsker.liste_id = lister.id AND billede IS NOT NULL AND billede != ''
-                 ORDER BY id DESC LIMIT 1) AS forsidebillede
+               (SELECT COUNT(*) FROM ønsker WHERE ønsker.liste_id = lister.id) AS antal
           FROM følger_lister
           JOIN lister ON lister.id = følger_lister.liste_id
           JOIN brugere ON brugere.id = lister.bruger_id
          WHERE følger_lister.følger_id = ?
-           AND NOT (lister.skjult_for_venner = 0
-                    AND lister.bruger_id IN
-                        (SELECT person_id FROM følger_personer WHERE følger_id = ?))
          ORDER BY følger_lister.id DESC
         """,
-        (følger_id, følger_id),
+        (følger_id,),
     ).fetchall()
 
 
@@ -604,8 +589,11 @@ def hent_liste_følgere(liste_id):
 
 
 def følg_person(følger_id, person_id):
-    """Sandt hvis personen blev fulgt nu. En enkeltliste fra samme person bliver
-    overflødig, for nu kommer alle personens lister med."""
+    """Sandt hvis personen blev fulgt nu.
+
+    At følge giver ingen adgang – alle på siden kan se hinandens lister i forvejen.
+    Det holder blot personen øverst i oversigten, så man ikke skal lede efter dem.
+    """
     db = get_db()
     markør = db.execute(
         "INSERT OR IGNORE INTO følger_personer (følger_id, person_id, oprettet) VALUES (?, ?, ?)",
@@ -632,40 +620,31 @@ def følger_person(følger_id, person_id):
     ).fetchone() is not None
 
 
-def hent_fulgte_personer(følger_id):
-    """Dem brugeren følger, med hvor mange lister der er at se hos hver."""
+def hent_alle_brugere(bruger_id):
+    """Alle andre på siden, med dem brugeren følger øverst.
+
+    Det er hele oversigten ved siden af ens egne lister: her findes folk, og herfra
+    klikkes der videre til deres ønskelister.
+    """
     db = get_db()
     return db.execute(
         """
-        SELECT brugere.id, brugere.navn, brugere.email, følger_personer.oprettet,
+        SELECT brugere.id, brugere.navn,
+               følger_personer.id IS NOT NULL AS følger,
                (SELECT COUNT(*) FROM lister
-                 WHERE lister.bruger_id = brugere.id AND lister.skjult_for_venner = 0) AS antal_lister
-          FROM følger_personer
-          JOIN brugere ON brugere.id = følger_personer.person_id
-         WHERE følger_personer.følger_id = ?
-         ORDER BY brugere.navn
+                 WHERE lister.bruger_id = brugere.id AND lister.skjult_for_andre = 0) AS antal_lister
+          FROM brugere
+          LEFT JOIN følger_personer
+                 ON følger_personer.person_id = brugere.id AND følger_personer.følger_id = ?
+         WHERE brugere.id != ?
+         ORDER BY følger DESC, brugere.navn COLLATE NOCASE
         """,
-        (følger_id,),
+        (bruger_id, bruger_id),
     ).fetchall()
 
 
-def hent_følgere(person_id):
-    """Dem der følger brugeren og dermed kan se listerne."""
-    db = get_db()
-    return db.execute(
-        """
-        SELECT brugere.id, brugere.navn, brugere.email, følger_personer.oprettet
-          FROM følger_personer
-          JOIN brugere ON brugere.id = følger_personer.følger_id
-         WHERE følger_personer.person_id = ?
-         ORDER BY brugere.navn
-        """,
-        (person_id,),
-    ).fetchall()
-
-
-def hent_lister_til_følger(person_id):
-    """Personens lister, som en der følger personen ser dem – de skjulte er pillet ud."""
+def hent_synlige_lister(person_id):
+    """Personens lister, som de andre på siden ser dem – de skjulte er pillet ud."""
     db = get_db()
     return db.execute(
         """
@@ -675,66 +654,8 @@ def hent_lister_til_følger(person_id):
                  WHERE ønsker.liste_id = lister.id AND billede IS NOT NULL AND billede != ''
                  ORDER BY id DESC LIMIT 1) AS forsidebillede
           FROM lister
-         WHERE lister.bruger_id = ? AND lister.skjult_for_venner = 0
+         WHERE lister.bruger_id = ? AND lister.skjult_for_andre = 0
          ORDER BY lister.id DESC
         """,
         (person_id,),
-    ).fetchall()
-
-
-### blokeringer: den man har fjernet som følger, skal ikke bare kunne følge igen
-
-
-def bloker(bruger_id, blokeret_id):
-    """Fjerner personen som følger og lukker døren: hverken det ene eller det andet
-    delelink virker for dem bagefter."""
-    db = get_db()
-    db.execute(
-        "INSERT OR IGNORE INTO blokeringer (bruger_id, blokeret_id, oprettet) VALUES (?, ?, ?)",
-        (bruger_id, blokeret_id, _nu()),
-    )
-    db.execute(
-        "DELETE FROM følger_personer WHERE følger_id = ? AND person_id = ?",
-        (blokeret_id, bruger_id),
-    )
-    db.execute(
-        """
-        DELETE FROM følger_lister
-         WHERE følger_id = ?
-           AND liste_id IN (SELECT id FROM lister WHERE bruger_id = ?)
-        """,
-        (blokeret_id, bruger_id),
-    )
-    db.commit()
-
-
-def ophæv_blokering(bruger_id, blokeret_id):
-    db = get_db()
-    markør = db.execute(
-        "DELETE FROM blokeringer WHERE bruger_id = ? AND blokeret_id = ?", (bruger_id, blokeret_id)
-    )
-    db.commit()
-    return markør.rowcount == 1
-
-
-def er_blokeret(bruger_id, blokeret_id):
-    """Har ejeren lukket den her bruger ude?"""
-    db = get_db()
-    return db.execute(
-        "SELECT 1 FROM blokeringer WHERE bruger_id = ? AND blokeret_id = ?",
-        (bruger_id, blokeret_id),
-    ).fetchone() is not None
-
-
-def hent_blokerede(bruger_id):
-    db = get_db()
-    return db.execute(
-        """
-        SELECT brugere.id, brugere.navn, brugere.email, blokeringer.oprettet
-          FROM blokeringer
-          JOIN brugere ON brugere.id = blokeringer.blokeret_id
-         WHERE blokeringer.bruger_id = ?
-         ORDER BY brugere.navn
-        """,
-        (bruger_id,),
     ).fetchall()

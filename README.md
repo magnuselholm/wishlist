@@ -52,26 +52,25 @@ Er linket havnet et forkert sted, laver **Lav nyt link** en ny nøgle, og det ga
 holder op med at virke. De der fulgte listen, følger den heller ikke længere – ellers
 lukkede det nye link jo ingen ude.
 
-## Venner
+## De andre på siden
 
-Under **Venner** samler man de lister, man gerne vil holde øje med.
+Ved siden af dine egne ønskelister står alle andre på siden. Klik på en for at se deres
+ønskelister, og videre ind i den enkelte liste, hvor ønskerne kan reserveres. Der skal
+ikke spørges om lov: siden er lukket i forvejen, og de der er kommet ind på en
+invitationskode, er familie og venner.
+
+Er der blevet mange, kan der søges på navn i feltet over listen. Stjernen ved et navn
+følger personen, og de man følger, står øverst næste gang. At følge giver ikke adgang til
+noget – listerne kan ses i forvejen – det holder bare de rigtige øverst.
+
+En liste kan holdes uden for det med **Skjul listen for de andre på siden** under Rediger
+liste. Så står den ikke på din side, når de andre kigger, men delelinket virker stadig –
+så gaven til en af dem kan ligge her, uden at den det handler om, opdager det.
 
 Har man fået et delelink til en enkelt liste, kan man trykke **Følg listen**, når man er
-logget ind. Så står den under Venner bagefter, og linket skal ikke findes frem igen.
-Ejeren kan se hvem der følger listen – men stadig ikke hvad de har reserveret.
-
-Vil man se alle en persons lister, følger man personen i stedet. Det gøres med den
-e-mail, personen logger ind med, og det kræver ikke personens accept: her på siden
-kender folk hinanden i forvejen. Nye lister kommer med af sig selv bagefter.
-
-Skal en liste holdes uden for det – typisk gaven til en, der følger dig – sættes flueben
-i **Skjul listen for dem der følger mig** under Rediger liste. Listen forsvinder fra
-Venner, men delelinket virker stadig, så den kan deles med alle de andre.
-
-Under **Dem der følger dig** står de personer, der følger dig. **Fjern** lukker en person
-ude igen: de kan ikke længere se listerne, hverken under Venner eller gennem et delelink
-de har fået, og de kan ikke bare følge dig igen. Fortryder man, står de under **Lukket
-ude**, hvor de kan lukkes ind igen.
+logget ind. Så står den under **Lister du følger** ved siden af ens egne, og linket skal
+ikke findes frem igen. Ejeren kan se hvem der følger listen – men stadig ikke hvad de har
+reserveret.
 
 ## Kom i gang
 
@@ -123,7 +122,7 @@ app/auth.py         opret bruger, log ind/ud, kontoen, login-krav, admin-krav og
 app/invitationer.py invitationskoder: oversigt, nye koder og spærring
 app/routes.py       ønskelister, ønsker og /api/skrab
 app/deling.py       gæstevisningen på /delt/<nøgle>, reservationer og at følge en liste
-app/venner.py       at følge en person, og hvem der følger dig
+app/brugere.py      de andre på siden: deres lister, og at følge dem
 app/skrab.py        henter titel, pris og billede fra et produktlink
 app/billeder.py     uploadede billeder
 templates/          sider (Jinja2)
@@ -150,6 +149,6 @@ Havde du den tidligere udgave (én fælles liste uden brugere), bliver den gamle
 omdøbt til `ønsker_gammel` første gang appen starter. Ingenting slettes, men ønskerne
 skal oprettes igen under din egen bruger.
 
-Reservationstabellen bliver bygget om første gang appen starter med vennerne, så en
+Reservationstabellen bliver bygget om første gang appen starter bagefter, så en
 reservation også kan høre til en bruger. De gamle reservationer bliver stående som de
 er – de hører til browseren, indtil gæsten logger ind.

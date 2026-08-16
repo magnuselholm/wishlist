@@ -3,13 +3,27 @@
 {% block titel %}{{ person['navn'] }}s ønskelister{% endblock %}
 
 {% block indhold %}
-<p class="tilbage"><a href="{{ url_for('venner.oversigt') }}">← Venner</a></p>
+<p class="tilbage"><a href="{{ url_for('main.lister') }}">← Mine ønskelister</a></p>
 
 <section class="sidehoved">
     <div>
         <h1>{{ person['navn'] }}</h1>
-        <p class="manchet">Ønskelisterne som {{ person['navn'] }} deler.
-            Reserver et ønske, så de andre kan se det er taget – {{ person['navn'] }} får det ikke at vide.</p>
+        <p class="manchet">Reserver et ønske, så de andre kan se det er taget –
+            {{ person['navn'] }} får det ikke at vide.</p>
+    </div>
+
+    <div class="knaprække">
+        {% if følger %}
+            <form method="POST" action="{{ url_for('brugere.følg_ikke', bruger_id=person['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button type="submit" class="knap sekundær">★ Følger</button>
+            </form>
+        {% else %}
+            <form method="POST" action="{{ url_for('brugere.følg', bruger_id=person['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button type="submit" class="knap sekundær">☆ Følg</button>
+            </form>
+        {% endif %}
     </div>
 </section>
 

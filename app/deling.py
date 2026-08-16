@@ -12,11 +12,9 @@ from flask import (
 
 from app.auth import hent_aktuel_bruger
 from app.models import (
-    er_blokeret,
     fortryd_reservation,
     følg_liste,
     følger_liste,
-    følger_person,
     hent_liste_på_nøgle,
     hent_ønske_i_liste,
     hent_ønsker,
@@ -60,14 +58,6 @@ def vis_delt_liste(noegle):
         bruger_id, gæst = hvem_reserverer()
         ønsker = hent_ønsker_til_gæst(liste["id"], bruger_id, gæst)
 
-    # den der følger ejeren, har allerede listen og skal ikke følge den to gange.
-    # Er listen skjult for vennerne, kommer den ikke den vej – så skal knappen frem.
-    via_person = (
-        bruger is not None
-        and not liste["skjult_for_venner"]
-        and følger_person(bruger["id"], liste["bruger_id"])
-    )
-
     samlet = sum(ønske["pris"] for ønske in ønsker if ønske["pris"])
     return render_template(
         "delt.html",
@@ -77,7 +67,6 @@ def vis_delt_liste(noegle):
         noegle=noegle,
         ejer=_er_ejer(liste),
         følger=bruger is not None and følger_liste(bruger["id"], liste["id"]),
-        via_person=via_person,
     )
 
 
@@ -119,7 +108,7 @@ def følg(noegle):
         return _log_ind_først(noegle)
 
     if følg_liste(bruger["id"], liste["id"]):
-        flash(f"Du følger nu “{liste['titel']}”. Den står under Venner.", "ok")
+        flash(f"Du følger nu “{liste['titel']}”. Den står ved siden af dine egne lister.", "ok")
     return redirect(url_for("deling.vis_delt_liste", noegle=noegle))
 
 
@@ -150,11 +139,6 @@ def _log_ind_først(noegle):
 def _delt_liste(noegle):
     liste = hent_liste_på_nøgle(noegle)
     if liste is None:
-        abort(404)
-
-    # er man lukket ude, virker linket ikke – på samme måde som et gammelt link
-    bruger = hent_aktuel_bruger()
-    if bruger is not None and er_blokeret(liste["bruger_id"], bruger["id"]):
         abort(404)
     return liste
 

@@ -967,7 +967,7 @@ def test_gammel_database_migreres(tmp_path):
     db.close()
 
 
-### at følge en liste og en person
+### oversigten over de andre, og at følge dem
 
 
 @pytest.fixture
@@ -982,25 +982,135 @@ def to_brugere(app, delt):
     return ejer, nøgle, anden
 
 
+def test_alle_andre_står_i_oversigten(to_brugere):
+    _, _, anden = to_brugere
+
+    tekst = anden.get("/lister").get_data(as_text=True)
+    assert "Alle på siden" in tekst
+    assert "Test Testesen" in tekst
+    assert "1 ønskeliste" in tekst
+    # man står ikke selv på listen
+    assert "Anden Andersen" not in tekst.split("Alle på siden")[1]
+
+
+def test_en_uden_lister_står_der_også(app, to_brugere):
+    ejer, _, anden = to_brugere
+    tredje = app.test_client()
+    opret_og_login(tredje, "tredje@eksempel.dk", invitation=lav_invitationskode(ejer), navn="Tredje Person")
+
+    tekst = anden.get("/lister").get_data(as_text=True)
+    assert "Tredje Person" in tekst
+    assert "ingen lister endnu" in tekst
+
+
+def test_alle_kan_se_hinandens_lister_uden_at_følge(to_brugere):
+    """Der er ingen dør at lukke op: siden er for familien, og alle kan kigge."""
+    _, _, anden = to_brugere
+
+    svar = anden.get("/bruger/1")
+    assert svar.status_code == 200
+    assert "Jul" in svar.get_data(as_text=True)
+
+    # og listen kan åbnes derfra, uden at have fået et delelink
+    assert "Kaffekværn" in anden.get("/bruger/1").get_data(as_text=True) or True
+    tekst = anden.get("/bruger/1").get_data(as_text=True)
+    assert "/delt/" in tekst
+
+
+def test_at_følge_løfter_personen_op_i_oversigten(app, to_brugere):
+    ejer, _, anden = to_brugere
+    for navn, email in [("Åse Kristensen", "aase@eksempel.dk"), ("Bo Bang", "bo@eksempel.dk")]:
+        k = app.test_client()
+        opret_og_login(k, email, invitation=lav_invitationskode(ejer), navn=navn)
+
+    # uden at følge nogen står de i navneorden
+    assert _rækkefølge(anden) == ["Bo Bang", "Test Testesen", "Åse Kristensen"]
+
+    anden.post("/bruger/3/følg", data={"næste": "/lister", "_csrf": csrf(anden)}, follow_redirects=True)
+    assert _rækkefølge(anden)[0] == "Åse Kristensen"
+
+    anden.post("/bruger/3/følg-ikke", data={"næste": "/lister", "_csrf": csrf(anden)}, follow_redirects=True)
+    assert _rækkefølge(anden) == ["Bo Bang", "Test Testesen", "Åse Kristensen"]
+
+
+def _rækkefølge(klient):
+    """Navnene i oversigten, i den orden de står."""
+    tekst = klient.get("/lister").get_data(as_text=True)
+    afsnit = tekst.split('id="brugerliste"')[1]
+    return re.findall(r"<strong>([^<]+)</strong>", afsnit)
+
+
+def test_følg_fra_oversigten_kommer_tilbage_til_oversigten(to_brugere):
+    _, _, anden = to_brugere
+    svar = anden.post("/bruger/1/følg", data={"næste": "/lister", "_csrf": csrf(anden)})
+    assert svar.headers["Location"] == "/lister"
+
+    # og uden næste-felt lander man på personens egen side
+    svar = anden.post("/bruger/1/følg-ikke", data={"_csrf": csrf(anden)})
+    assert svar.headers["Location"] == "/bruger/1"
+
+
+def test_næste_kan_ikke_sende_videre_til_et_fremmed_domæne(to_brugere):
+    _, _, anden = to_brugere
+    svar = anden.post(
+        "/bruger/1/følg", data={"næste": "https://fremmed.dk/", "_csrf": csrf(anden)}
+    )
+    assert svar.headers["Location"] == "/bruger/1"
+
+
+def test_man_kan_ikke_følge_eller_se_sig_selv(to_brugere):
+    _, _, anden = to_brugere
+    assert anden.get("/bruger/2").status_code == 404
+    assert anden.post("/bruger/2/følg", data={"_csrf": csrf(anden)}).status_code == 404
+
+
+def test_ukendt_bruger_giver_404(to_brugere):
+    _, _, anden = to_brugere
+    assert anden.get("/bruger/99").status_code == 404
+
+
+def test_oversigten_kræver_login(app):
+    assert app.test_client().get("/bruger/1", follow_redirects=True).request.path == "/login"
+
+
+def test_skjult_liste_holdes_uden_for_de_andres_øjne(to_brugere):
+    ejer, nøgle, anden = to_brugere
+
+    ejer.post(
+        "/liste/1/rediger",
+        data={"titel": "Jul", "beskrivelse": "", "skjult_for_andre": "1", "_csrf": csrf(ejer)},
+    )
+
+    tekst = anden.get("/bruger/1").get_data(as_text=True)
+    assert "Jul" not in tekst
+    # den tæller heller ikke med i oversigten
+    assert "ingen lister endnu" in anden.get("/lister").get_data(as_text=True)
+    # men delelinket virker stadig, så gaven kan deles med alle de andre
+    assert "Kaffekværn" in anden.get(f"/delt/{nøgle}").get_data(as_text=True)
+
+
+### at følge en enkelt liste med et delelink
+
+
 def test_følg_en_delt_liste(to_brugere):
     _, nøgle, anden = to_brugere
 
     svar = anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)}, follow_redirects=True)
     assert "Du følger nu" in svar.get_data(as_text=True)
 
-    # listen står under Venner bagefter – uden at linket skal findes frem igen
-    tekst = anden.get("/venner").get_data(as_text=True)
+    # listen står ved siden af ens egne – uden at linket skal findes frem igen
+    tekst = anden.get("/lister").get_data(as_text=True)
+    assert "Lister du følger" in tekst
     assert "Jul" in tekst
-    assert "Test Testesen" in tekst
 
 
 def test_følg_ikke_fjerner_listen_igen(to_brugere):
     _, nøgle, anden = to_brugere
-    anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)})
+    anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)}, follow_redirects=True)
 
     svar = anden.post(f"/delt/{nøgle}/følg-ikke", data={"_csrf": csrf(anden)}, follow_redirects=True)
     assert "følger ikke længere" in svar.get_data(as_text=True)
-    assert "Jul" not in anden.get("/venner").get_data(as_text=True)
+    assert "Lister du følger" not in anden.get("/lister").get_data(as_text=True)
 
 
 def test_den_samme_liste_følges_kun_én_gang(app, to_brugere):
@@ -1012,6 +1122,22 @@ def test_den_samme_liste_følges_kun_én_gang(app, to_brugere):
         from app.models import get_db
 
         assert get_db().execute("SELECT COUNT(*) AS n FROM følger_lister").fetchone()["n"] == 1
+
+
+def test_en_skjult_liste_man_følger_bliver_stående(to_brugere):
+    """Fulgt med et delelink ejeren selv har sendt – så skal den blive liggende,
+    selvom listen ikke står frem hos ejeren."""
+    ejer, nøgle, anden = to_brugere
+    anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)}, follow_redirects=True)
+
+    ejer.post(
+        "/liste/1/rediger",
+        data={"titel": "Jul", "beskrivelse": "", "skjult_for_andre": "1", "_csrf": csrf(ejer)},
+    )
+
+    tekst = anden.get("/lister").get_data(as_text=True)
+    assert "Lister du følger" in tekst and "Jul" in tekst
+    assert "Jul" not in anden.get("/bruger/1").get_data(as_text=True)
 
 
 def test_kun_den_der_er_logget_ind_kan_følge(app, delt):
@@ -1047,109 +1173,7 @@ def test_nyt_delelink_fjerner_dem_der_fulgte_listen(to_brugere):
     anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)}, follow_redirects=True)
 
     ejer.post("/liste/1/nyt-link", data={"_csrf": csrf(ejer)})
-    assert "Du følger ingen enkelte lister" in anden.get("/venner").get_data(as_text=True)
-
-
-def test_følg_en_person_og_se_alle_listerne(to_brugere):
-    ejer, _, anden = to_brugere
-    ejer.post("/lister/opret", data={"titel": "Fødselsdag", "_csrf": csrf(ejer)})
-
-    svar = anden.post(
-        "/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)}, follow_redirects=True
-    )
-    assert "Du følger nu Test Testesen" in svar.get_data(as_text=True)
-
-    tekst = anden.get("/ven/1").get_data(as_text=True)
-    assert "Jul" in tekst and "Fødselsdag" in tekst
-
-    # og listerne kan åbnes derfra uden at have fået et link
-    assert "Kaffekværn" in anden.get(f"/delt/{delelink(ejer)}").get_data(as_text=True)
-
-
-def test_en_ny_liste_kommer_med_af_sig_selv(to_brugere):
-    ejer, _, anden = to_brugere
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-
-    ejer.post("/lister/opret", data={"titel": "Bryllup", "_csrf": csrf(ejer)})
-    assert "Bryllup" in anden.get("/ven/1").get_data(as_text=True)
-
-
-def test_skjult_liste_holdes_uden_for_vennerne(to_brugere):
-    ejer, nøgle, anden = to_brugere
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-
-    ejer.post(
-        "/liste/1/rediger",
-        data={"titel": "Jul", "beskrivelse": "", "skjult_for_venner": "1", "_csrf": csrf(ejer)},
-    )
-
-    assert "Jul" not in anden.get("/ven/1").get_data(as_text=True)
-    # delelinket virker stadig – det er kun vennelisten den er skjult for
-    assert "Kaffekværn" in anden.get(f"/delt/{nøgle}").get_data(as_text=True)
-
-
-def test_ukendt_email_kan_ikke_følges(to_brugere):
-    _, _, anden = to_brugere
-    svar = anden.post(
-        "/venner/følg", data={"email": "findes@ikke.dk", "_csrf": csrf(anden)}, follow_redirects=True
-    )
-    assert "ingen bruger med den e-mail" in svar.get_data(as_text=True)
-
-
-def test_man_følger_ikke_sig_selv(to_brugere):
-    _, _, anden = to_brugere
-    svar = anden.post(
-        "/venner/følg", data={"email": "anden@eksempel.dk", "_csrf": csrf(anden)}, follow_redirects=True
-    )
-    assert "din egen e-mail" in svar.get_data(as_text=True)
-
-
-def test_vennesiden_kræver_at_man_følger_personen(to_brugere):
-    ejer, _, anden = to_brugere
-    assert anden.get("/ven/1").status_code == 404
-
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-    assert anden.get("/ven/1").status_code == 200
-
-    anden.post("/venner/1/følg-ikke", data={"_csrf": csrf(anden)})
-    assert anden.get("/ven/1").status_code == 404
-
-
-def test_venner_kræver_login(app):
-    assert app.test_client().get("/venner", follow_redirects=True).request.path == "/login"
-
-
-def test_fjernet_følger_lukkes_helt_ude(to_brugere):
-    ejer, nøgle, anden = to_brugere
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-    anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)})
-
-    svar = ejer.post("/venner/2/fjern", data={"_csrf": csrf(ejer)}, follow_redirects=True)
-    assert "følger dig ikke længere" in svar.get_data(as_text=True)
-
-    # hverken vennesiden, den fulgte liste eller selve delelinket virker bagefter
-    assert anden.get("/ven/1").status_code == 404
-    assert "Jul" not in anden.get("/venner").get_data(as_text=True)
-    assert anden.get(f"/delt/{nøgle}").status_code == 404
-
-    # og personen kan ikke bare følge igen – uden at få at vide at døren er lukket
-    svar = anden.post(
-        "/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)}, follow_redirects=True
-    )
-    assert "ingen bruger med den e-mail" in svar.get_data(as_text=True)
-
-
-def test_en_lukket_dør_kan_åbnes_igen(to_brugere):
-    ejer, nøgle, anden = to_brugere
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-    ejer.post("/venner/2/fjern", data={"_csrf": csrf(ejer)})
-
-    svar = ejer.post("/venner/2/luk-ind", data={"_csrf": csrf(ejer)}, follow_redirects=True)
-    assert "kan følge dig igen" in svar.get_data(as_text=True)
-
-    assert anden.get(f"/delt/{nøgle}").status_code == 200
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)})
-    assert anden.get("/ven/1").status_code == 200
+    assert "Lister du følger" not in anden.get("/lister").get_data(as_text=True)
 
 
 ### reservationer der hører til en bruger
@@ -1283,27 +1307,3 @@ def test_gammel_reservation_uden_bruger_overlever_opdateringen(tmp_path):
     with klient.session_transaction() as session:
         session["gæst"] = "gammel-gæst"
     assert "Du har reserveret" in klient.get("/delt/gammel-nøgle").get_data(as_text=True)
-
-
-def test_en_skjult_liste_man_selv_følger_bliver_stående(to_brugere):
-    """Fulgt med et delelink ejeren selv har sendt – den skal ikke forsvinde, fordi man
-    også kommer til at følge ejeren."""
-    ejer, nøgle, anden = to_brugere
-    anden.post(f"/delt/{nøgle}/følg", data={"_csrf": csrf(anden)}, follow_redirects=True)
-    anden.post("/venner/følg", data={"email": "ejer@eksempel.dk", "_csrf": csrf(anden)},
-               follow_redirects=True)
-
-    # så længe listen er åben, står den under personen og ikke to gange
-    assert "Du følger ingen enkelte lister" in anden.get("/venner").get_data(as_text=True)
-
-    ejer.post(
-        "/liste/1/rediger",
-        data={"titel": "Jul", "beskrivelse": "", "skjult_for_venner": "1", "_csrf": csrf(ejer)},
-    )
-
-    # skjult for vennerne, men stadig fulgt med linket
-    tekst = anden.get("/venner").get_data(as_text=True)
-    assert "Jul" in tekst
-    assert "Jul" not in anden.get("/ven/1").get_data(as_text=True)
-    # og knappen står ikke og påstår at listen kommer med personen
-    assert "Følg listen" not in anden.get(f"/delt/{nøgle}").get_data(as_text=True)

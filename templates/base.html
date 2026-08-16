@@ -13,7 +13,6 @@
             {% if bruger %}
                 <a class="hilsen" href="{{ url_for('auth.konto') }}">{{ bruger['navn'] }}</a>
                 <a href="{{ url_for('main.lister') }}">Mine ønskelister</a>
-                <a href="{{ url_for('venner.oversigt') }}">Venner</a>
                 {% if bruger['admin'] %}
                     <a href="{{ url_for('invitationer.oversigt') }}">Invitationer</a>
                 {% endif %}

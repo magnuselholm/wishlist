@@ -39,13 +39,13 @@ def create_app(config=Config):
     with app.app_context():
         init_db()
 
-    from app import auth, deling, invitationer, routes, venner
+    from app import auth, brugere, deling, invitationer, routes
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(routes.bp)
     app.register_blueprint(deling.bp)
     app.register_blueprint(invitationer.bp)
-    app.register_blueprint(venner.bp)
+    app.register_blueprint(brugere.bp)
 
     app.before_request(auth.tjek_csrf)
     app.jinja_env.filters["kroner"] = kroner

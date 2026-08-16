@@ -24,8 +24,6 @@
         <div class="knaprække">
             {% if not bruger %}
                 <a class="knap sekundær" href="{{ url_for('auth.login', næste=request.path) }}">Log ind for at følge listen</a>
-            {% elif via_person %}
-                <span class="mærkat">Du følger {{ liste['ejer_navn'] }}</span>
             {% elif følger %}
                 <form method="POST" action="{{ url_for('deling.følg_ikke', noegle=noegle) }}">
                     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -42,9 +40,9 @@
     {% endif %}
 </section>
 
-{% if not ejer and bruger and not følger and not via_person %}
-    <p class="besked">Følg listen, så finder du den igen under <strong>Venner</strong> – uden at
-        skulle lede efter linket.</p>
+{% if not ejer and bruger and not følger %}
+    <p class="besked">Følg listen, så ligger den ved siden af dine egne ønskelister –
+        uden at linket skal findes frem igen.</p>
 {% endif %}
 
 {% if not ejer %}
